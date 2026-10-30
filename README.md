@@ -2,7 +2,7 @@
 
 A browser-based incremental civilization game. Start with wheat, grow a settlement, explore the map and construct the Great Observatory before your first RE-Evolution.
 
-**[Play CivIdle Enhanced](https://horizonan.github.io/cividle-enhanced/)** · [All Horizonan projects](https://horizonan.github.io/) · [Report a playtest issue](https://github.com/Horizonan/cividle-enhanced/issues/new/choose)
+**[Play CivIdle Enhanced](https://horizonan.github.io/cividle-enhanced/)** · [All Horizonan projects](https://horizonan.github.io/) · [Discord feedback](https://discord.gg/y6AtXJfcWc) · [Report a playtest issue](https://github.com/Horizonan/cividle-enhanced/issues/new/choose)
 
 This is an early public playtest. Saves are kept in your browser. Use **Settings → Export save** to back up a run or transfer it to another device or browser. An exported save from the earlier hosted version can be imported here; the two website addresses do not share browser storage.
 

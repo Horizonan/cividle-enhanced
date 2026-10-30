@@ -3,6 +3,7 @@
 
 @media (max-width:700px),(max-width:900px) and (pointer:coarse){
   :root{--mobile-bar:70px;--muted:#64685e}
+  .feedback-link{width:100%;min-height:48px;font-size:14px;padding:12px 14px}
   html{scroll-padding-top:calc(82px + env(safe-area-inset-top));scroll-padding-bottom:calc(100px + env(safe-area-inset-bottom));-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{font-size:15px;line-height:1.5;min-width:0}
   body.has-mobile-navigation{padding-bottom:calc(var(--mobile-bar) + env(safe-area-inset-bottom))}

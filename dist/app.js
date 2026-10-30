@@ -18,6 +18,8 @@ const SAVE_KEY = 'everdawn-save-v2';
 const RESEARCH_FILTER_KEY = 'everdawn-hide-researched';
 const BACKUP_KEY = 'everdawn-last-run';
 const GROUPS_KEY='everdawn-building-groups';
+const DISCORD_FEEDBACK_URL='https://discord.gg/y6AtXJfcWc';
+const feedbackLinkHTML=()=>'<a class="feedback-link" href="'+DISCORD_FEEDBACK_URL+'" target="_blank" rel="noopener noreferrer" aria-label="Feedback on Discord (opens in a new tab)"><span>Feedback on Discord</span><span aria-hidden="true">↗</span></a>';
 const BUILD_GROUPS=[
   {id:'food',name:'Food',types:['farm','fishery']},
   {id:'materials',name:'Materials',types:['lumber','quarry','kiln','workshop']},
@@ -42,7 +44,7 @@ const navIcon=id=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" strok
 function navigatePage(id){page=id;render();window.scrollTo(0,0);}
 function showMore(){
   const items=navigationItems().filter(([id])=>!['settlement','research','workers'].includes(id));
-  dialog('<h2>More</h2><div class="more-menu">'+items.map(([id,name])=>'<button data-more-page="'+id+'" '+(page===id?'aria-current="page"':'')+'><span>'+name+'</span><span aria-hidden="true">›</span></button>').join('')+'</div>');
+  dialog('<h2>More</h2><div class="more-menu">'+items.map(([id,name])=>'<button data-more-page="'+id+'" '+(page===id?'aria-current="page"':'')+'><span>'+name+'</span><span aria-hidden="true">›</span></button>').join('')+feedbackLinkHTML()+'</div>');
   $$('[data-more-page]').forEach(btn=>btn.onclick=()=>{$('#modal').close();navigatePage(btn.dataset.morePage);});
 }
 const fmt = n => Math.floor(n).toLocaleString('en-US');
@@ -418,6 +420,7 @@ function settings() {
     (state.mapUnlocked ? '<label class="settings-label" for="settlement-name">Settlement name</label><input type="text" id="settlement-name" maxlength="24" value="' + escape(state.name) + '"><div class="dialog-actions"><button id="rename">Save name</button></div><hr class="settings-separator">' : '') +
     '<div class="settings-buttons"><button id="export-save">Export save</button><button id="import-save">Import save</button><input type="file" id="import-file" accept=".json,application/json" hidden></div>' +
     '<p>Progress saves in this browser. Offline production is capped at 8 hours.</p>' +
+    '<div class="settings-feedback">'+feedbackLinkHTML()+'</div>' +
     (backupAvailable?'<button class="secondary" id="export-backup">Export previous civilization</button>':'') +
     '<hr class="settings-separator"><button class="danger" id="new-game">Reset current run</button>');
   if ($('#rename')) $('#rename').onclick = () => {
