@@ -1,0 +1,31 @@
+name: Playtest feedback
+description: Report a bug, confusing step or pacing problem.
+title: '[Playtest] '
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: e.g. iPhone / Safari, Android / Chrome, Windows / Firefox
+    validations:
+      required: true
+  - type: input
+    id: progress
+    attributes:
+      label: Settlement stage and approximate time played
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include steps to reproduce the problem or where progression felt unclear or slow.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Optional screenshots or exported save
+      description: Only attach information you want to share publicly. Saves contain your settlement name and game progress.
