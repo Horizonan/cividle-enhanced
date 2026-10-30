@@ -11,7 +11,7 @@ export function simulateFirstRun(onMilestone = () => {}, meta = null, options = 
   const diagnostics={foodBlocked:0,fullSeconds:{},harvests:0,researchSeconds:0,constructionSeconds:0};
   const mark=label=>{const item={label,minutes:Math.round(s.elapsed/6)/10};timeline.push(item);onMilestone(item);};
   const fillJobs=()=>{
-    for(const type of ['lumber','quarry','kiln','workshop','academy','library','explorer']) {
+    for(const type of ['lumber','quarry','kiln','workshop','grandArchive','academy','library','explorer']) {
       const amount=Math.min(workerDemand(s,type),assignedWorkers(s,type)+population(s)-workers(s));
       if(amount!==assignedWorkers(s,type))assert.equal(assignWorkers(s,type,amount),null);
     }
@@ -64,7 +64,20 @@ export function simulateFirstRun(onMilestone = () => {}, meta = null, options = 
     if(options.supplies){while(wonderBoostQuote(s)&&affordable(s,wonderBoostQuote(s).cost))assert.equal(boostWonder(s),null);}
     advance(options.checkIn?Math.ceil(wonderRemaining(s)/checkIn)*checkIn:wonderRemaining(s));mark(WONDER_STAGES[i].name);
   }
-  assert.ok(canReevolve(s));mark(WONDER_NAME+' complete');
+  if(meta?.revolutions&&!options.observatoryOnly){
+    discover('guildCharters');buy('guildhall',1);discover('waterpower');discover('renaissance');discover('printingPress');
+    while(s.exploration.tiles.length<mapTileCount(s))advance(checkIn);discover('cartography');fillJobs();
+    buy('warehouse',2);buy('grandArchive',2);buy('farm',8);buy('residence',4);
+    while(population(s)<84)advance(5);
+    if(!s.tech.includes('fishing'))discover('fishing');if(!s.tech.includes('shipping'))discover('shipping');
+    while(!freeTile(s,'wharf')&&s.exploration.tiles.length<mapTileCount(s))advance(checkIn);
+    // Survey again only when every tile has been explored and no coastline is free.
+    if(!freeTile(s,'wharf')){discover('cartography');fillJobs();}
+    buy('wharf',1);if(!s.fleet.ships){wait(SHIP_COST,'Ship');assert.equal(startShip(s),null);while(s.fleet.building)advance(checkIn);}
+    discover('celestialNavigation');
+    for(const project of [{cost:{stone:2500,science:4000,tool:250,coin:1000},name:'Star catalogue'},{cost:{wood:3000,science:6000,tool:350,coin:2000},name:'Celestial Atlas'}]){wait(project.cost,project.name);assert.equal(startWonder(s),null);advance(wonderRemaining(s));mark(project.name);}
+  }
+  if(!options.observatoryOnly)assert.ok(canReevolve(s));mark(WONDER_NAME+' complete');
   return { state:s,beforeWonder,timeline,waits,diagnostics };
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){

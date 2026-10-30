@@ -36,12 +36,12 @@ test('RE-Evolution keeps earned badges, grants its final badge and does not requ
   const s=copy(reference.state);assert.ok(canReevolve(s));assert.ok(!s.meta.achievements.includes('voyage'));
   const earned=[...s.meta.achievements];assert.equal(reevolve(s,2000),null);
   for(const id of earned)assert.ok(s.meta.achievements.includes(id));assert.ok(s.meta.achievements.includes('reevolution'));
-  assert.ok(!s.meta.achievements.includes('voyage'));assert.equal(s.meta.insight,3);assert.equal(s.wonder.stage,0);
+  assert.ok(!s.meta.achievements.includes('voyage'));assert.equal(s.meta.insight,s.meta.history[0].reward);assert.ok(s.meta.insight>=12);assert.equal(s.wonder.stage,0);
   assert.ok(restore(serialize(s,2000),2000));
 });
 test('format 10 migration recovers verifiable achievements and rejects malformed new records',()=>{
   const s=copy(reference.state);s.version=10;delete s.meta.achievements;
-  const result=restore(serialize(s,1000),1000);assert.ok(result);assert.equal(result.state.version,12);
+  const result=restore(serialize(s,1000),1000);assert.ok(result);assert.equal(result.state.version,13);
   for(const id of ['firstField','hamlet','village','tools','city','foundations','observatory','explorer'])assert.ok(result.state.meta.achievements.includes(id));
   assert.ok(!result.state.meta.achievements.includes('reevolution'));
   for(const ids of [undefined,['unknown'],['firstField','firstField'],[{}]]){const bad=copy(result.state);bad.meta.achievements=ids;assert.equal(restore(serialize(bad,1000),1000),null);}

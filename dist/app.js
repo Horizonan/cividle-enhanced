@@ -8,6 +8,9 @@ import {
   mapSize, mapTileCount, MAX_MAP_SIZE,
   isHome, demolitionQuote, demolishHome, ACHIEVEMENTS, achievementProgress, wonderVisualStep, wonderStatus, buildingStorage, nextMilestone, advanceAway,
 } from './model.js';
+import {constellationsHTML,collectionsHTML,guildsHTML,revealEvolution} from './evolution-ui.js';
+import {evolutionQuote,CONSTELLATIONS,STARS,COLLECTIONS,hasStar,buyStar,acknowledgeEvolution,GUILDS,setGuild,wonderProjects} from './model.js';
+let selectedStar='seed';
 import { mapHTML, wonderArt } from './map.js';
 import { observatoryAnimationHTML } from './observatory.js';
 
@@ -25,7 +28,7 @@ const BUILD_GROUPS=[
   {id:'materials',name:'Materials',types:['lumber','quarry','kiln','workshop']},
   {id:'housing',name:'Housing',types:['house','stoneHouse','residence']},
   {id:'storage',name:'Storage',types:['barn','warehouse']},
-  {id:'knowledge',name:'Knowledge',types:['hall','study','library','academy']},
+  {id:'knowledge',name:'Knowledge',types:['hall','study','library','academy','grandArchive','guildhall']},
   {id:'harbour',name:'Harbour',types:['wharf']},
 ];
 let buildGroupOpen={food:true};
@@ -39,7 +42,7 @@ let latestAway=restored?.away?.seconds>=60?restored.away:null, awayStarted=docum
 let knownAchievements=new Set(state.meta.achievements);
 let page = 'settlement', marketQuantity = 10, lastTick = Date.now(), saveTime = 0, toastTimer, signature;
 let resourcesExpanded=false,mobileSettlementView='buildings',mapZoom=1;
-const navigationItems=()=>researchUnlocked(state)?[['settlement','Settlement'],['research','Research'],['progress','Progress'],...(workersUnlocked(state)?[['workers','Workers']]:[]),...(tradeUnlocked(state)?[['trade','Market']]:[]),...(state.tech.includes('shipping')?[['fleet','Fleet']]:[]),['achievements','Achievements'],...(state.meta.revolutions||canReevolve(state)?[['legacy','RE-Evolution']]:[])]:state.meta.achievements.length||state.meta.revolutions?[['settlement','Settlement'],['achievements','Achievements'],...(state.meta.revolutions?[['legacy','RE-Evolution']]:[])]:[];
+const navigationItems=()=>researchUnlocked(state)?[['settlement','Settlement'],['research','Research'],['progress','Progress'],...(workersUnlocked(state)?[['workers','Workers']]:[]),...(tradeUnlocked(state)?[['trade','Market']]:[]),...(state.tech.includes('shipping')?[['fleet','Fleet']]:[]),['achievements','Achievements'],['collections','Collections'],...(state.tech.includes('guildCharters')?[['guilds','Guilds']]:[]),...(state.meta.revolutions||canReevolve(state)?[['legacy','RE-Evolution']]:[])]:state.meta.achievements.length||state.meta.revolutions?[['settlement','Settlement'],['achievements','Achievements'],['collections','Collections'],...(state.meta.revolutions?[['legacy','RE-Evolution']]:[])]:[];
 const navIcon=id=>'<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+({settlement:'<path d="M3 10l9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/>',research:'<path d="M12 5v15M3 4h4q3 0 5 2 2-2 5-2h4v14h-4q-3 0-5 2-2-2-5-2H3Z"/>',workers:'<circle cx="9" cy="7" r="3"/><path d="M3 21v-4a6 6 0 0 1 12 0v4M17 4a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4v3"/>',more:'<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>'}[id]||'')+'</svg>';
 function navigatePage(id){page=id;render();window.scrollTo(0,0);}
 function showMore(){
@@ -90,7 +93,7 @@ function act(action, message) {
 }
 function uiSignature() {
   return [constructionUnlocked(state), state.mapUnlocked, researchUnlocked(state), state.researching?.id,
-    state.tech.join(','), mapSize(state), state.exploration.tiles.length, state.fleet.ships, !!state.fleet.building, JSON.stringify(state.fleet.missions), population(state), stageIndex(state), state.autoJob, state.wonder.stage, state.wonder.boosts, state.wonder.remaining>0, wonderVisualStep(state), state.meta.achievements.join(','), state.meta.insight, JSON.stringify(state.meta.upgrades), JSON.stringify(state.assignments), tradeUnlocked(state), visibleResources(state).join(','), availableBuildings(state).join(','), visibleTechnologies(state).join(',')].join('|');
+    state.tech.join(','), mapSize(state), state.exploration.tiles.length, state.fleet.ships, !!state.fleet.building, JSON.stringify(state.fleet.missions), population(state), stageIndex(state), state.autoJob, state.wonder.stage, state.wonder.boosts, state.wonder.remaining>0, wonderVisualStep(state), state.meta.achievements.join(','), state.meta.insight, state.meta.stars.join(','), state.meta.pendingEvolution?.total, evolutionQuote(state).total, state.guildFocus, JSON.stringify(state.meta.upgrades), JSON.stringify(state.assignments), tradeUnlocked(state), visibleResources(state).join(','), availableBuildings(state).join(','), visibleTechnologies(state).join(',')].join('|');
 }
 function productionText(type) {
   const d = BUILDINGS[type];
@@ -111,7 +114,7 @@ function earlyHTML() {
   return resources + (constructionUnlocked(state) ? constructionHTML() : '');
 }
 function constructionHTML() {
-  const available=availableBuildings(state),types=available.filter(type=>type!=='hall'||!count(state,'hall'));
+  const available=availableBuildings(state),types=available.filter(type=>!['hall','guildhall'].includes(type)||!count(state,type));
   if(!available.includes('warehouse')&&visibleTechnologies(state).includes('warehousing'))types.push('warehouse');
   const rowHTML=type=>{
     const cost = buildCost(state,type), owned = count(state,type);
@@ -174,7 +177,7 @@ function technologyRows() {
   }).join('') + '</div>';
 }
 function researchHTML() {
-  return stockpilesHTML() + '<div class="research-heading"><h1 class="page-title">Research</h1>' +
+  return stockpilesHTML() + (state.meta.revolutions?'<p class="worker-help">Evolution '+(state.meta.revolutions+1)+' · '+(state.tech.includes('renaissance')?'Renaissance':state.tech.includes('guildCharters')?'Age of guilds':'Foundations')+'</p>':'') + '<div class="research-heading"><h1 class="page-title">Research</h1>' +
     '<button id="hide-researched" aria-pressed="' + hideResearched + '">Hide researched</button></div>' + (workerDemand(state,'researcher') ? '<p class="worker-summary">'+assignedWorkers(state,'researcher')+'/'+workerDemand(state,'researcher')+' researchers · '+rateFmt(researchSpeed(state))+'× research speed <button class="research-workers" data-open-workers>Assign researchers</button></p>':state.tech.includes('housing')?'<p class="worker-summary">Build a Study to assign researchers and speed up research.</p>':'') + technologyRows();
 }
 function tradeHTML() {
@@ -203,12 +206,12 @@ function progressHTML() {
   const current=stageIndex(state), missing=wonderRequirements(state);
   return stockpilesHTML() + '<h1 class="page-title">Settlement progress</h1><div class="stage-current"><strong>' + STAGES[current].name + '</strong><span>' + STAGES[current].unlock + '</span></div>' +
     '<ol class="stage-list">' + STAGES.map((stage,i)=>'<li><div><h3>'+stage.name+'</h3><p>'+stage.unlock+'</p>'+(i>current?'<p class="stage-requirements">Requires '+stageRequirements(state,i).join(', ')+'</p>':'')+'</div><span>'+(i<current?'Reached':i===current?'Current':'Locked')+'</span></li>').join('') + '</ol>' +
-    (current>=3 ? '<section class="wonder-section"><h2>'+WONDER_NAME+'</h2><div class="wonder-preview">'+wonderArt(state)+'<div><strong>'+wonderStatus(state)+'</strong><p>'+state.wonder.stage+' / 4 stages complete</p></div></div><p class="worker-help">Complete four construction stages to unlock your first RE-Evolution. Research can continue during construction.</p>' +
-      (missing.length?'<p class="capacity-warning">Requires '+missing.join(', ')+'.</p>':'') + WONDER_STAGES.map((project,i)=> {
+    (current>=3 ? '<section class="wonder-section"><h2>'+WONDER_NAME+'</h2><div class="wonder-preview">'+wonderArt(state)+'<div><strong>'+wonderStatus(state)+'</strong><p>'+state.wonder.stage+' / '+wonderProjects(state).length+' stages complete</p></div></div><p class="worker-help">Complete the construction stages to unlock RE-Evolution. Later civilizations extend the Observatory into a Celestial Atlas. Research can continue during construction.</p>' +
+      (missing.length?'<p class="capacity-warning">Requires '+missing.join(', ')+'.</p>':'') + wonderProjects(state).map((project,i)=> {
         const complete=i<state.wonder.stage, active=i===state.wonder.stage&&state.wonder.remaining>0, next=i===state.wonder.stage&&!active;
         return '<div class="wonder-row"><div><h3>'+(i+1)+'. '+project.name+'</h3><p>'+timeFmt(active?state.wonder.duration:wonderDuration(state,i))+' base construction</p>'+(active?'<progress class="wonder-progress" data-wonder-progress max="'+state.wonder.duration+'" value="'+(state.wonder.duration-state.wonder.remaining)+'"></progress><span class="cost-wait" data-wonder-remaining></span>':'')+'</div>'+
           (complete?'<span class="done-label">Complete</span>':active?wonderSuppliesHTML():'<div class="purchase-block">'+costHTML(project.cost)+(next?'<button id="start-wonder" '+needs(project.cost)+' data-locked="'+!!missing.length+'">Start stage</button>'+etaHTML(project.cost):'<span class="done-label">Complete previous stage</span>')+'</div>')+'</div>';
-      }).join('') + (canReevolve(state)?'<div class="reevolution-ready"><p>'+WONDER_NAME+' complete. RE-Evolution awards 3 permanent Insight.</p><div class="completion-actions"><button data-observatory-animation>Show Observatory animation</button><button class="primary" data-reevolve>Review RE-Evolution</button></div></div>':'') + '</section>' : '') +
+      }).join('') + (state.wonder.stage>=4?'<div class="reevolution-ready"><p>'+WONDER_NAME+' complete. '+(canReevolve(state)?'RE-Evolution awards '+evolutionQuote(state).total+' Evolution Points.':'Continue the Star catalogue and Celestial Atlas to unlock RE-Evolution.')+'</p><div class="completion-actions"><button data-observatory-animation>Show Observatory animation</button>'+(canReevolve(state)?'<button class="primary" data-reevolve>Review RE-Evolution</button>':'')+'</div></div>':'') + '</section>' : '') +
     (current<3?'<p class="worker-help">Develop a town to reveal the Great Observatory project. Completing this wonder unlocks RE-Evolution and permanent upgrades.</p>':'');
 }
 function wonderSuppliesHTML(){
@@ -221,21 +224,18 @@ function achievementsHTML(){
     return '<section class="achievement-row '+(p.earned?'earned':'')+'"><div><h3>'+a.name+'</h3><p>'+a.description+'</p><progress aria-label="'+a.name+' progress" data-achievement-progress="'+a.id+'" max="'+p.target+'" value="'+p.current+'"></progress></div><span data-achievement-status="'+a.id+'">'+(p.earned?'Earned':fmt(p.current)+' / '+p.target)+'</span></section>';
   }).join('')+'</div>';
 }
-function legacyHTML() {
-  return '<h1 class="page-title">RE-Evolution</h1><p class="legacy-summary">'+state.meta.insight+' Insight available · '+state.meta.revolutions+' completed civilization'+(state.meta.revolutions===1?'':'s')+'</p>' +
-    (canReevolve(state)?'<div class="reevolution-ready"><p>Complete civilization ready: gain 3 Insight and begin a new run.</p><div class="completion-actions"><button data-observatory-animation>Show Observatory animation</button><button class="primary" data-reevolve>Review RE-Evolution</button></div></div>':'') +
-    '<div class="legacy-list">'+Object.entries(LEGACY_UPGRADES).map(([id,upgrade])=>'<section class="research-row"><div><h3>'+upgrade.name+'</h3><p>'+upgrade.description+'</p><p>Level '+state.meta.upgrades[id]+' / 5</p></div><div class="purchase-block"><span class="cost">'+(state.meta.upgrades[id]>=5?'Maximum level':legacyCost(state,id)+' Insight')+'</span><button data-legacy="'+id+'" '+(state.meta.upgrades[id]>=5||state.meta.insight<legacyCost(state,id)||state.paused?'disabled':'')+'>Choose upgrade</button></div></section>').join('')+'</div>' +
-    '<h2 class="run-history-heading">Completed runs</h2>'+(state.meta.history.length?state.meta.history.map(run=>'<div class="run-history-row"><span>Civilization '+run.run+' · '+escape(run.wonder)+'</span><span>'+runTimeFmt(run.seconds)+' · +'+run.reward+' Insight</span></div>').join(''):'<p class="worker-help">Complete the Great Observatory to earn your first Insight.</p>');
-}
+function legacyHTML(){return constellationsHTML(state,selectedStar);}
+function showEvolutionRewards(){if(state.meta.pendingEvolution)revealEvolution(state.meta.pendingEvolution,{open:dialog,finish:()=>{acknowledgeEvolution(state);page='legacy';save();$('#modal').close();render();}});}
 function reviewReevolution() {
-  dialog('<h2>Begin RE-Evolution?</h2><p>Your completed civilization earns <strong>3 Insight</strong>. This run took '+runTimeFmt(state.elapsed)+'.</p><p>'+state.meta.achievements.length+' / 10 achievements earned. A new beginning unlocks when you restart; optional achievements can be earned later.</p><p><strong>Resets:</strong> resources, buildings, population, worker assignments, run research, the map and wonder construction.</p><p><strong>Keeps:</strong> achievements, Insight, permanent upgrades and completed-run history. A backup of this run will be available in Settings.</p><div class="dialog-actions"><button id="cancel-reevolve">Keep this civilization</button><button class="primary" id="confirm-reevolve">Begin next civilization</button></div>');
+  if(!canReevolve(state)){toast('Complete every Observatory and Atlas stage first.');return;}
+  dialog('<h2>Begin RE-Evolution?</h2><p>Your completed civilization earns <strong>'+evolutionQuote(state).total+' Evolution Points</strong> ('+evolutionQuote(state).base+' completion + '+evolutionQuote(state).collectionPoints+' collection tiers + '+evolutionQuote(state).itemPoints+' mementos). This run took '+runTimeFmt(state.elapsed)+'.</p><p>'+state.meta.achievements.length+' / 10 achievements earned. A new beginning unlocks when you restart; optional achievements can be earned later.</p><p><strong>Resets:</strong> resources, buildings, population, worker assignments, run research, the map and wonder construction.</p><p><strong>Keeps:</strong> achievements, collections, Evolution Points, constellation stars, permanent upgrades and completed-run history. Guilds, Renaissance research and the Celestial Atlas are available in the next civilization. A backup of this run will be available in Settings.</p><div class="dialog-actions"><button id="cancel-reevolve">Keep this civilization</button><button class="primary" id="confirm-reevolve">Begin next civilization</button></div>');
   $('#cancel-reevolve').onclick=()=>$('#modal').close();
   $('#confirm-reevolve').onclick=()=>{
     advance();
     if(!canReevolve(state)){toast('Complete the Great Observatory first.');return;}
     try {localStorage.setItem(BACKUP_KEY,serialize(state));}catch{toast('Backup unavailable. Export your save before restarting.');return;}
     const error=reevolve(state);if(error){toast(error);return;}
-    lastTick=Date.now();latestAway=null;page='legacy';save();render();$('#modal').close();
+    lastTick=Date.now();latestAway=null;page='legacy';save();render();$('#modal').close();showEvolutionRewards();
   };
 }
 function render() {
@@ -251,13 +251,14 @@ function render() {
   $('#journey-controls').hidden=!state.buildings.length&&!latestAway;
   $('#next-milestone').hidden=!state.buildings.length;
   $('#away-report').hidden=!latestAway;
-  $('#game').className = state.mapUnlocked ? '' : 'early';
-  $('#game').innerHTML = page === 'research' ? researchHTML() : page === 'trade' ? tradeHTML() : page === 'workers' ? workersHTML() : page==='fleet'?fleetHTML(): page==='progress'?progressHTML():page==='achievements'?achievementsHTML():page==='legacy'?legacyHTML():state.mapUnlocked ? settlementHTML() : earlyHTML();
+  $('#game').className = page==='legacy'?'evolution-page':state.mapUnlocked?'':'early';
+  $('#game').innerHTML = page === 'research' ? researchHTML() : page === 'trade' ? tradeHTML() : page === 'workers' ? workersHTML() : page==='fleet'?fleetHTML(): page==='progress'?progressHTML():page==='achievements'?achievementsHTML():page==='legacy'?legacyHTML():page==='collections'?collectionsHTML(state):page==='guilds'?guildsHTML(state):state.mapUnlocked ? settlementHTML() : earlyHTML();
   signature = uiSignature();
   bind();
   updateLive();
 }
 function updateLive() {
+  for(const row of evolutionQuote(state).rows){const value=$('[data-collection-value="'+row.id+'"]'),bar=$('[data-collection-progress="'+row.id+'"]');if(value)value.textContent=fmt(row.value);if(bar)bar.value=row.value;}
   if (signature !== uiSignature()) { render(); return; }
   const r = rates(state);
   if($('#milestone-content'))$('#milestone-content').innerHTML=milestoneHTML();
@@ -300,6 +301,10 @@ function updateLive() {
   if(state.wonder.remaining>0){$$('[data-wonder-progress]').forEach(el=>el.value=state.wonder.duration-state.wonder.remaining);$$('[data-wonder-remaining]').forEach(el=>el.textContent=timeFmt(wonderRemaining(state))+(state.paused?' · paused':' remaining'));const quote=wonderBoostQuote(state);if(quote){$$('[data-wonder-boost-preview]').forEach(el=>el.textContent=quote.saved<1?'Stage nearly complete':'Saves '+timeFmt(quote.saved)+' · '+timeFmt(quote.nextRemaining)+' remaining after boost');$$('[data-boost-wonder]').forEach(btn=>btn.disabled=state.paused||quote.saved<1||!affordable(state,quote.cost));}}
   if($('#arrival-job'))$('#arrival-job').disabled=state.paused;
   $$('[data-speed-research]').forEach(btn => btn.disabled = state.paused);
+  $$('[data-star]').forEach(btn=>btn.onclick=()=>{selectedStar=btn.dataset.star;render();$('.star-node[data-star="'+selectedStar+'"]')?.focus();});
+  $$('[data-buy-star]').forEach(btn=>btn.onclick=()=>act(()=>buyStar(state,btn.dataset.buyStar),'Permanent star unlocked.'));
+  $$('[data-guild]').forEach(btn=>btn.onclick=()=>act(()=>setGuild(state,btn.dataset.guild||null)));
+  $$('[data-evolution-reveal]').forEach(btn=>btn.onclick=showEvolutionRewards);
   $$('[data-legacy]').forEach(btn=>btn.disabled=state.paused||state.meta.upgrades[btn.dataset.legacy]>=5||state.meta.insight<legacyCost(state,btn.dataset.legacy));
   $$('[data-reevolve]').forEach(btn=>btn.disabled=state.paused);
   $$('[data-demolish-type]').forEach(btn=>btn.disabled=state.paused);
@@ -313,7 +318,7 @@ function updateLive() {
   });
   $('#pause-button').textContent = state.paused ? 'Resume' : 'Pause';
 }
-function dialog(html) { $('#modal').classList.remove('observatory-dialog'); $('#modal-content').innerHTML = html; if (!$('#modal').open) $('#modal').showModal(); updateLive(); }
+function dialog(html) { $('#modal').classList.remove('observatory-dialog','evolution-dialog'); $('#modal-content').innerHTML = html; if (!$('#modal').open) $('#modal').showModal(); updateLive(); }
 function milestoneHTML(){
   const milestone=nextMilestone(state);
   return '<h2>'+escape(milestone.title)+'</h2><p>'+escape(milestone.description)+'</p><ul class="milestone-list">'+milestone.requirements.map(r=>'<li class="'+(r.done?'met':'')+'"><span>'+escape(r.label)+'</span><strong>'+(r.kind==='research'?(r.done?'Complete':state.researching?.id===r.id?'Researching · '+timeFmt(researchRemaining(state)):'Not researched'):fmt(r.current)+' / '+fmt(r.target))+'</strong></li>').join('')+'</ul>'+(state.wonder.remaining>0?'<p>Construction: '+timeFmt(wonderRemaining(state))+' remaining'+(state.paused?' · paused':'')+'</p>':'')+'<p class="milestone-hint">'+escape(milestone.action.label)+'.</p>';
@@ -336,13 +341,13 @@ function showAway(){
   $('#away-dismiss').onclick=()=>$('#modal').close();
 }
 function showObservatoryAnimation(){
-  if(!canReevolve(state))return;
+  if(state.wonder.stage<4)return;
   dialog(observatoryAnimationHTML());$('#modal').classList.add('observatory-dialog');$('#modal-close').focus();
   $('#observation-summary').onclick=showRunSummary;
 }
 function showRunSummary(){
-  if(!canReevolve(state))return;
-  dialog('<h2>Your first observation</h2><p>The Great Observatory is complete.</p><div class="run-summary">'+[['Civilization',state.name],['Time',runTimeFmt(state.elapsed)],['Residents',fmt(population(state))],['Buildings',fmt(state.buildings.length)],['Tiles explored',fmt(state.exploration.tiles.length)],['Achievements',state.meta.achievements.length+' / '+ACHIEVEMENTS.length],['RE-Evolution reward','3 permanent Insight']].map(([label,value])=>'<div class="detail-stat"><span>'+label+'</span><strong>'+escape(value)+'</strong></div>').join('')+'</div><p>Begin another civilization with permanent production, storage or research upgrades. New eras and distant-shore chapters are planned; they are not unlocked in this version.</p><div class="dialog-actions"><button id="replay-observation">Replay</button><button id="summary-return">Return</button><button class="primary" id="summary-reevolve">Review RE-Evolution</button></div>');
+  if(state.wonder.stage<4)return;
+  dialog('<h2>Your first observation</h2><p>The Great Observatory is complete.</p><div class="run-summary">'+[['Civilization',state.name],['Time',runTimeFmt(state.elapsed)],['Residents',fmt(population(state))],['Buildings',fmt(state.buildings.length)],['Tiles explored',fmt(state.exploration.tiles.length)],['Achievements',state.meta.achievements.length+' / '+ACHIEVEMENTS.length],['RE-Evolution reward',evolutionQuote(state).total+' Evolution Points']].map(([label,value])=>'<div class="detail-stat"><span>'+label+'</span><strong>'+escape(value)+'</strong></div>').join('')+'</div><p>Begin another civilization with permanent production, storage or research upgrades. The next civilization unlocks guild specializations and Renaissance research, leading to the Celestial Atlas.</p><div class="dialog-actions"><button id="replay-observation">Replay</button><button id="summary-return">Return</button><button class="primary" id="summary-reevolve" '+(canReevolve(state)?'':'disabled')+'>Review RE-Evolution</button></div>');
   $('#replay-observation').onclick=showObservatoryAnimation;$('#summary-return').onclick=()=>$('#modal').close();$('#summary-reevolve').onclick=reviewReevolution;
 }
 function reviewDemolition(x,y){
@@ -447,7 +452,7 @@ function settings() {
     $('#confirm-import').onclick = () => { state = result.state; latestAway=result.away?.seconds>=60?result.away:null; page = 'settlement'; lastTick = Date.now(); save(); render(); $('#modal').close(); if(latestAway)showAway(); };
   };
   $('#new-game').onclick = () => {
-    dialog('<h2>Reset this run?</h2><p>Your settlement will be replaced. Permanent Insight, upgrades and completed-run history are kept. This reset awards no Insight. Export a backup first if you want to keep this settlement.</p><div class="dialog-actions"><button id="cancel-reset">Cancel</button><button class="danger" id="confirm-reset">Start over</button></div>');
+    dialog('<h2>Reset this run?</h2><p>Your settlement will be replaced. Evolution Points, collections, stars, upgrades and completed-run history are kept. This reset awards no points. Export a backup first if you want to keep this settlement.</p><div class="dialog-actions"><button id="cancel-reset">Cancel</button><button class="danger" id="confirm-reset">Start over</button></div>');
     $('#cancel-reset').onclick = () => $('#modal').close();
     $('#confirm-reset').onclick = () => { state = fresh(Date.now(),state.meta); latestAway=null; lastTick = Date.now(); page = 'settlement'; save(); render(); $('#modal').close(); };
   };

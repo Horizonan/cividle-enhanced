@@ -1,8 +1,12 @@
+import {blankCollections,blankStats,recordCollections,evolutionQuote,hasStar,validEvolution} from './evolution.js';
+export {COLLECTIONS,MEMENTOS,CONSTELLATIONS,STARS,hasStar,evolutionQuote,buyStar,acknowledgeEvolution} from './evolution.js';
 export const RESOURCE = {
   wheat: { name: 'Wheat' }, wood: { name: 'Wood' }, stone: { name: 'Stone' },
   science: { name: 'Knowledge' }, coin: { name: 'Coins' }, brick: { name: 'Bricks' }, tool: { name: 'Tools' }, fish: { name: 'Fish' },
 };
 export const BUILDINGS = {
+  guildhall: {name:'Guildhall',output:{},cost:{wood:300,stone:200,brick:100,coin:50},workers:0,terrain:['grass']},
+  grandArchive: {name:'Grand archive',storage:{science:500},output:{science:1.2},cost:{wood:600,brick:500,tool:80,coin:400},growth:1.5,workers:4,terrain:['grass']},
   farm: { name: 'Wheat field', storage: {wheat:15}, output: { wheat: .2 }, cost: { wheat: 10 }, growth: 1.65, workers: 0, terrain: ['grass'] },
   lumber: { name: 'Logging camp', storage: {wood:25}, output: { wood: .2 }, cost: { wheat: 100 }, growth: 1.35, workers: 2, terrain: ['forest'] },
   quarry: { name: 'Stone quarry', storage: {stone:25}, output: { stone: .15 }, cost: { wheat: 150, wood: 50 }, growth: 1.35, workers: 2, terrain: ['rock'] },
@@ -21,6 +25,11 @@ export const BUILDINGS = {
   warehouse: {name:'Warehouse',storage:{wheat:500,wood:500,stone:500,brick:500,tool:500,coin:500,fish:500},dedicatedStorage:true,output:{},cost:{wood:150,stone:100},growth:1.6,workers:0,terrain:['grass','rock']},
 };
 export const TECH = {
+  guildCharters:{name:'Guild charters',description:'Unlock a guildhall and choose an economic specialization.',minEvolution:1,minStage:2,cost:{science:300,wood:150},duration:600,requires:['map','pottery']},
+  waterpower:{name:'Waterpower',description:'Logging camps and quarries produce 20% more.',minEvolution:1,minStage:3,cost:{science:800,brick:120,tool:60},duration:900,requires:['engineering','guildCharters']},
+  renaissance:{name:'Renaissance',description:'Enter a new research era. Develop printing and celestial navigation.',minEvolution:1,minStage:4,buildings:{guildhall:1},cost:{science:2000,tool:150,coin:400},duration:1200,requires:['astronomy','waterpower']},
+  printingPress:{name:'Printing press',description:'Unlock grand archives and 8,000 base knowledge storage.',minEvolution:1,cost:{science:2000,brick:350,tool:100},duration:1200,requires:['renaissance']},
+  celestialNavigation:{name:'Celestial navigation',description:'Chart the sky and unlock the final Celestial Atlas stage. Requires a completed ship.',minEvolution:1,minStage:4,ships:1,buildings:{grandArchive:1,wharf:1},cost:{science:4000,tool:200,coin:750},duration:1800,requires:['printingPress','shipping']},
   agriculture: { name: 'Cultivation', description: 'All wheat fields produce 40% more.', cost: { wheat: 80 }, duration: 90, requires: [], buildings: { farm: 2 } },
   granaries: { name: 'Barns', description: 'Unlock barns. Each stores 400 wheat.', cost: { wheat: 80 }, duration: 120, requires: ['agriculture'] },
   forestry: { name: 'Woodcutting', description: 'Unlock logging camps.', cost: { wheat: 150 }, duration: 150, requires: ['agriculture', 'granaries'] },
@@ -62,6 +71,18 @@ export const WONDER_STAGES = [
   { name: 'Instruments', cost: { tool: 250, science: 1500, coin: 700 }, duration: 2400 },
   { name: 'First observation', cost: { science: 3000, tool: 120, coin: 1000 }, duration: 1800 },
 ];
+export const ATLAS_STAGES=[
+ {name:'Star catalogue',cost:{stone:2500,science:4000,tool:250,coin:1000},duration:1800},
+ {name:'Celestial Atlas',cost:{wood:3000,science:6000,tool:350,coin:2000},duration:2400},
+];
+export const wonderProjects=s=>s.meta.revolutions>0?[...WONDER_STAGES,...ATLAS_STAGES]:WONDER_STAGES;
+export const GUILDS={agrarian:{name:'Agrarian guild',description:'+25% food; −10% brick and tool production.'},industry:{name:'Artisans’ guild',description:'+35% brick and tool production; −10% food.'},scholars:{name:'Scholars’ guild',description:'+25% research speed; −10% wood and stone production.'}};
+export function setGuild(s,id){
+ if(s.paused)return 'Resume the game to change guilds.';
+ if(!s.meta.revolutions||!s.tech.includes('guildCharters')||!count(s,'guildhall'))return 'Research Guild charters and build a guildhall first.';
+ if(id!==null&&!Object.hasOwn(GUILDS,id))return 'Unknown guild.';
+ s.guildFocus=id;return null;
+}
 export const MAX_WONDER_BOOSTS=4;
 export const wonderSpeed=s=>1+.25*(s.wonder.boosts||0);
 export const wonderRemaining=s=>s.wonder.remaining/wonderSpeed(s);
@@ -89,17 +110,18 @@ export function achievementProgress(s,id){
   return {current,target:achievement.target,earned};
 }
 export function recordAchievements(s){
+  recordCollections(s);
   for(const a of ACHIEVEMENTS)if(!s.meta.achievements.includes(a.id)&&achievementProgress(s,a.id).current>=a.target)s.meta.achievements.push(a.id);
 }
-const freshMeta = () => ({ insight: 0, revolutions: 0, upgrades: { production: 0, storage: 0, knowledge: 0 }, history: [], achievements: [] });
+const freshMeta = () => ({ insight: 0, revolutions: 0, upgrades: { production: 0, storage: 0, knowledge: 0 }, history: [], achievements: [], stars:[], collections:blankCollections(), pendingEvolution:null });
 const legacyLevel = (s,key) => s.meta?.upgrades?.[key] || 0;
 export const MAX_MAP_SIZE = 41;
 export const mapSize=s=>s.exploration?.size??9;
 export const mapTileCount=s=>mapSize(s)**2;
 export const frontierLevel=s=>(mapSize(s)-9)/4;
 const researchBaseDuration=(s,id)=>TECH[id].duration*(TECH[id].repeatable?1.25**frontierLevel(s):1);
-export const researchDuration = (s,id) => researchBaseDuration(s,id) / (1 + .1 * legacyLevel(s,'knowledge'));
-export const wonderDuration = (s,index) => WONDER_STAGES[index].duration / (1 + .1 * legacyLevel(s,'knowledge'));
+export const researchDuration = (s,id) => researchBaseDuration(s,id) * (hasStar(s,'thought')?.85:1) / (1 + .1 * legacyLevel(s,'knowledge'));
+export const wonderDuration = (s,index) => wonderProjects(s)[index].duration * (hasStar(s,'vision')?.85:1) / (1 + .1 * legacyLevel(s,'knowledge'));
 export const STORAGE_LIMIT = 10000;
 export const POPULATION_INTERVAL = 60;
 export const COINS_PER_PERSON = .01;
@@ -110,19 +132,19 @@ export const SHIP_DURATION = 600;
 export const MARKET_PRICES = { wheat: { buy: 1, sell: .3 }, wood: { buy: 2, sell: .5 }, stone: { buy: 3, sell: .75 }, brick: { buy: 5, sell: 2 }, tool: { buy: 8, sell: 3 }, fish:{buy:1,sell:.3} };
 export const JOB_TYPES = [...Object.keys(BUILDINGS).filter(type => BUILDINGS[type].workers > 0),'researcher','explorer','sailor'];
 export const jobName = type => ({researcher:'Researchers',explorer:'Explorers',sailor:'Sailors'})[type] || BUILDINGS[type].name;
-export const researchSpeed = s => 1 + .05 * assignedWorkers(s,'researcher');
+export const researchSpeed = s => (1 + .05 * assignedWorkers(s,'researcher'))*(s.guildFocus==='scholars'?1.25:1);
 export const researchRemaining = s => s.researching ? s.researching.remaining / researchSpeed(s) : 0;
 const STORAGE_TECH = ['granaries', 'stockpiles', 'warehousing', 'archives', 'organizedStorage'];
 export function buildingStorage(s,type){
-  const d=BUILDINGS[type],bonus=(d?.dedicatedStorage&&s.tech.includes('organizedStorage')?3:1)*(1+.25*legacyLevel(s,'storage'));
+  const d=BUILDINGS[type],bonus=(d?.dedicatedStorage&&s.tech.includes('organizedStorage')?3:1)*(1+.25*legacyLevel(s,'storage'))*(hasStar(s,'granary')?1.25:1);
   return Object.fromEntries(Object.entries(d?.storage||{}).map(([k,n])=>[k,n*bonus]));
 }
 export function storageCapacity(s, resource) {
   let base=resource==='wheat'?50:25;
-  if(resource==='science')base=s.tech.includes('organizedStorage')?4000:s.tech.includes('archives')?500:25;
+  if(resource==='science')base=s.tech.includes('printingPress')?8000:s.tech.includes('organizedStorage')?4000:s.tech.includes('archives')?500:25;
   else if(resource!=='wheat'&&s.tech.includes('stockpiles'))base+=200;
   const buildings=s.buildings.reduce((n,b)=>n+(BUILDINGS[b.type].storage?.[resource]||0)*(BUILDINGS[b.type].dedicatedStorage&&s.tech.includes('organizedStorage')?3:1),0);
-  return Math.floor((base+buildings)*(1+.25*legacyLevel(s,'storage')));
+  return Math.floor((base+buildings)*(1+.25*legacyLevel(s,'storage'))*(hasStar(s,'granary')?1.25:1));
 }
 export function terrain(x, y) {
   if(x>=9||y>=9){if((x+2*y)%17<3)return 'water';if((x*11+y*7)%13<3)return 'rock';if((x*3+y*5)%7<2)return 'forest';return 'grass';}
@@ -142,7 +164,7 @@ export function suitableTile(s,type,x,y){
 }
 export const shipCapacity=s=>count(s,'wharf')*2;
 export const shipCrewing=s=>staffing(s,'sailor');
-export const explorationRate=s=>s.mapUnlocked && s.exploration.tiles.length<mapTileCount(s) ? assignedWorkers(s,'explorer')+s.fleet.missions.exploration*2*shipCrewing(s) : 0;
+export const explorationRate=s=>s.mapUnlocked && s.exploration.tiles.length<mapTileCount(s) ? (assignedWorkers(s,'explorer')+s.fleet.missions.exploration*2*shipCrewing(s))*(hasStar(s,'trail')?1.25:1) : 0;
 function revealTile(s){
   const frontier=new Set();
   for(const key of s.exploration.tiles){const [x,y]=key.split(',').map(Number);for(const [a,b]of neighbours(x,y,mapSize(s)))if(!tileKnown(s,a,b))frontier.add(tileKey(a,b));}
@@ -165,7 +187,7 @@ export function assignShips(s,mission,amount){
 }
 const emptyResources = () => Object.fromEntries(Object.keys(RESOURCE).map(k => [k, 0]));
 export function fresh(now = Date.now(), meta = null) {
-  return { version: 12, exploration:{size:9,tiles:initialTiles(),progress:0}, fleet:{ships:0,missions:{fishing:0,exploration:0},building:null}, meta: meta ? {achievements:[],...JSON.parse(JSON.stringify(meta))} : freshMeta(), wonder: { stage: 0, remaining: 0, duration: 0, boosts:0 }, autoJob: null, population: 6, growthProgress: 0, resources: emptyResources(), earned: emptyResources(), buildings: [], tech: [], assignments: Object.fromEntries(JOB_TYPES.map(type => [type,0])),
+  return { version: 13, runStats:blankStats(), guildFocus:null, exploration:{size:9,tiles:initialTiles(),progress:0}, fleet:{ships:0,missions:{fishing:0,exploration:0},building:null}, meta: meta ? {...freshMeta(),...JSON.parse(JSON.stringify(meta))} : freshMeta(), wonder: { stage: 0, remaining: 0, duration: 0, boosts:0 }, autoJob: null, population: 6, growthProgress: 0, resources: emptyResources(), earned: emptyResources(), buildings: [], tech: [], assignments: Object.fromEntries(JOB_TYPES.map(type => [type,0])),
     researching: null, mapUnlocked: false, paused: false, lastSaved: now, elapsed: 0, name: 'Settlement' };
 }
 export const count = (s, type) => s.buildings.filter(b => b.type === type).length;
@@ -174,7 +196,7 @@ const requirementCount=(s,type)=>type==='house'?Math.floor((capacity(s)-6)/6):co
 export const constructionUnlocked = s => s.earned.wheat >= 10;
 export const capacity = s => 6 + s.buildings.reduce((total,b)=>total+(BUILDINGS[b.type]?.housing||0),0);
 export const population = s => s.population;
-export const foodConsumption = s => population(s)*WHEAT_PER_PERSON;
+export const foodConsumption = s => population(s)*WHEAT_PER_PERSON*(hasStar(s,'hearth')?.9:1);
 export const wheatSupply = s => s.buildings.reduce((n,b)=>n+(BUILDINGS[b.type].output.wheat||0)*multiplier(s,b)*staffing(s,b.type),0);
 export const fishSupply=s=>s.buildings.reduce((n,b)=>n+(BUILDINGS[b.type].output.fish||0)*multiplier(s,b)*staffing(s,b.type),0)+s.fleet.missions.fishing*.3*shipCrewing(s)*multiplier(s,{type:'ship'});
 export const foodSupply=s=>wheatSupply(s)+fishSupply(s);
@@ -201,8 +223,8 @@ export function nextMilestone(s){
   else if(current<4){const stage=STAGES[current+1];title=stage.name;description=stage.unlock;requirements=[row('Residents',population(s),stage.population,'population'),...Object.entries(stage.buildings).map(([t,n])=>buildingRow(t,n)),...stage.tech.map(techRow)];}
   else if(canReevolve(s))return {title:'RE-Evolution ready',description:'The first observation is complete. Review your rewards when you are ready.',requirements:[],action:{page:'legacy',label:'Review RE-Evolution'}};
   else{
-    const project=WONDER_STAGES[s.wonder.stage];title=WONDER_NAME+' · '+project.name;description=s.wonder.remaining>0?'Construction in progress. Extra supplies can increase its speed.':'Fund the next construction stage.';
-    requirements=[buildingRow('workshop',3),...Object.entries(project.cost).map(([k,n])=>row(RESOURCE[k].name,s.wonder.remaining>0?n:s.resources[k],n,'resource',k))];
+    const project=wonderProjects(s)[s.wonder.stage];title=WONDER_NAME+' · '+project.name;description=s.wonder.remaining>0?'Construction in progress. Extra supplies can increase its speed.':'Fund the next construction stage.';
+    requirements=[buildingRow('workshop',3),...(s.wonder.stage>=4?[techRow('printingPress'),buildingRow('guildhall',1),buildingRow('grandArchive',1),row('Residents',population(s),84,'population'),...(s.wonder.stage>=5?[techRow('celestialNavigation')]:[])]:[]),...Object.entries(project.cost).map(([k,n])=>row(RESOURCE[k].name,s.wonder.remaining>0?n:s.resources[k],n,'resource',k))];
     return {title,description,requirements,action:{page:'progress',label:'View Observatory'}};
   }
   const unlocks={lumber:'forestry',quarry:'masonry',house:'housing',hall:'writing',library:'scholarship',workshop:'toolmaking',residence:'civilEngineering',academy:'education',kiln:'pottery'};
@@ -234,7 +256,7 @@ export function advanceAway(s,seconds){
   return {seconds:Math.min(28800,requested),capped:requested>28800,paused:before.paused,simulated:s.elapsed-before.elapsed,
     resources:Object.fromEntries(Object.keys(RESOURCE).map(k=>[k,s.resources[k]-before.resources[k]])),
     residents:population(s)-before.population,research:s.tech.filter(id=>!before.tech.includes(id)),survey:mapSize(s)>before.size,
-    stages:STAGES.slice(before.stage+1,stageIndex(s)+1).map(x=>x.name),wonder:WONDER_STAGES.slice(before.wonder,s.wonder.stage).map(x=>x.name),
+    stages:STAGES.slice(before.stage+1,stageIndex(s)+1).map(x=>x.name),wonder:wonderProjects(s).slice(before.wonder,s.wonder.stage).map(x=>x.name),
     ships:s.fleet.ships-before.ships,tiles:s.exploration.tiles.length-before.tiles,full:[...audit.full],hunger:audit.hunger,
     achievements:s.meta.achievements.filter(id=>!before.achievements.includes(id))};
 }
@@ -258,7 +280,8 @@ export function assignWorkers(s, type, amount) {
   return null;
 }
 export function buildingUnlocked(s, type) {
-  const unlocks = { lumber: 'forestry', quarry: 'masonry', house: 'housing', stoneHouse: 'stoneConstruction', study: 'housing', hall: 'writing', library: 'scholarship', kiln: 'pottery', workshop: 'toolmaking', residence: 'civilEngineering', academy: 'education', fishery:'fishing',wharf:'shipping',barn:'granaries',warehouse:'warehousing' };
+  const unlocks = { guildhall:'guildCharters',grandArchive:'printingPress',lumber: 'forestry', quarry: 'masonry', house: 'housing', stoneHouse: 'stoneConstruction', study: 'housing', hall: 'writing', library: 'scholarship', kiln: 'pottery', workshop: 'toolmaking', residence: 'civilEngineering', academy: 'education', fishery:'fishing',wharf:'shipping',barn:'granaries',warehouse:'warehousing' };
+  if (['guildhall','grandArchive'].includes(type)&&!s.meta.revolutions)return false;
   if (type === 'farm') return constructionUnlocked(s);
   if (['residence','academy'].includes(type) && stageIndex(s)<3) return false;
   return Object.hasOwn(unlocks, type) && s.tech.includes(unlocks[type]);
@@ -272,6 +295,8 @@ export function researchRequirements(s, id) {
   const t = TECH[id];
   if (!t) return ['Unknown research'];
   return [
+    ...(t.minEvolution&&s.meta.revolutions<t.minEvolution?['Complete RE-Evolution '+t.minEvolution]:[]),
+    ...(t.ships&&s.fleet.ships<t.ships?['Complete a ship']:[]),
     ...(id==='cartography'&&s.exploration.tiles.length<mapTileCount(s)?['Explore all '+mapTileCount(s)+' tiles ('+s.exploration.tiles.length+'/'+mapTileCount(s)+')']:[]),
     ...(id==='cartography'&&mapSize(s)>=MAX_MAP_SIZE?['Frontier surveying complete']:[]),
     ...(t.minStage && stageIndex(s) < t.minStage ? [STAGES[t.minStage].name + ' stage'] : []),
@@ -282,7 +307,7 @@ export function researchRequirements(s, id) {
 }
 export const mapAvailable = s => researchRequirements(s,'map').length === 0;
 export const visibleTechnologies = s => researchUnlocked(s) ? Object.keys(TECH).filter(id =>
-  s.tech.includes(id) || s.researching?.id === id || TECH[id].requires.every(k => s.tech.includes(k))
+  (!TECH[id].minEvolution||s.meta.revolutions>=TECH[id].minEvolution)&&(s.tech.includes(id) || s.researching?.id === id || TECH[id].requires.every(k => s.tech.includes(k)))
 ) : [];
 export const visibleResources = s => Object.keys(RESOURCE).filter(k => k === 'wheat' || k === 'coin' && coinsUnlocked(s) || s.resources[k] > 0 || s.earned[k] > 0 || s.buildings.some(b => BUILDINGS[b.type].output[k]));
 export function multiplier(s, b) {
@@ -290,6 +315,17 @@ export function multiplier(s, b) {
   if (b.type === 'farm' && s.tech.includes('agriculture')) n *= 1.4;
   if (b.type === 'farm' && s.tech.includes('irrigation')) n *= 1.5;
   if (b.type === 'lumber' && s.tech.includes('sustainableForestry')) n *= 1.4;
+  const food=['farm','fishery','ship'].includes(b.type),raw=['lumber','quarry'].includes(b.type),industry=['kiln','workshop'].includes(b.type),knowledge=['hall','library','academy','grandArchive'].includes(b.type);
+  if(hasStar(s,'engine'))n*=1.1;
+  if(food&&hasStar(s,'seed'))n*=1.2;
+  if(raw&&hasStar(s,'chisel'))n*=1.15;
+  if(industry&&hasStar(s,'forge'))n*=1.2;
+  if(knowledge&&hasStar(s,'archive'))n*=1.25;
+  if(b.type==='ship'&&hasStar(s,'tide'))n*=1.3;
+  if(raw&&s.tech.includes('waterpower'))n*=1.2;
+  if(s.guildFocus==='agrarian')n*=food?1.25:industry?.9:1;
+  if(s.guildFocus==='industry')n*=industry?1.35:food?.9:1;
+  if(s.guildFocus==='scholars'&&raw)n*=.9;
   return n;
 }
 function production(s, dt = 1, audit = null) {
@@ -309,7 +345,7 @@ function production(s, dt = 1, audit = null) {
   const boatOutput=Math.min(s.fleet.missions.fishing*.3*shipCrewing(s)*multiplier(s,{type:'ship'}),Math.max(0,(storageCapacity(s,'fish')-s.resources.fish)/dt-net.fish));
   net.fish+=boatOutput;gross.fish+=boatOutput;
   if (coinsUnlocked(s)) {
-    const amount = Math.max(0,Math.min(population(s) * COINS_PER_PERSON,(storageCapacity(s,'coin') - s.resources.coin) / dt));
+    const amount = Math.max(0,Math.min(population(s) * COINS_PER_PERSON*(hasStar(s,'exchange')?1.2:1),(storageCapacity(s,'coin') - s.resources.coin) / dt));
     net.coin += amount; gross.coin += amount;
   }
   net.wheat=Math.max(-s.resources.wheat/dt,net.wheat);
@@ -348,6 +384,7 @@ export function tick(s, seconds, audit = null) {
     for (const k of Object.keys(RESOURCE)) {
       s.resources[k] = Math.min(Math.max(storageCapacity(s,k),s.resources[k]), Math.max(0, s.resources[k] + net[k] * dt));
       s.earned[k] = Math.min(Number.MAX_SAFE_INTEGER, s.earned[k] + gross[k] * dt);
+      s.runStats.produced[k]=Math.min(Number.MAX_SAFE_INTEGER,s.runStats.produced[k]+gross[k]*dt);
     }
     s.elapsed += dt; remaining -= dt;
     if (growing) {
@@ -374,7 +411,7 @@ export function harvest(s) {
   if (s.paused) return 'Resume the game to harvest.';
   const amount = Math.min(1,storageCapacity(s,'wheat') - s.resources.wheat);
   if (amount <= 1e-9) return 'Wheat storage is full.';
-  s.resources.wheat += amount; s.earned.wheat += amount;
+  s.resources.wheat += amount; s.earned.wheat += amount; s.runStats.produced.wheat+=amount;recordCollections(s);
   return null;
 }
 export function affordable(s, cost) { return Object.entries(cost).every(([k, n]) => Object.hasOwn(RESOURCE,k) && Number.isFinite(n) && n >= 0 && s.resources[k] + 1e-9 >= n); }
@@ -395,12 +432,12 @@ export function freeTile(s, type) {
   for (let x = 0; x < mapSize(s); x++) for (let y = 0; y < mapSize(s); y++) {
     if (suitableTile(s,type,x,y)) tiles.push({ x, y });
   }
-  return tiles.sort((a, b) => (Math.abs(a.x - 4) + Math.abs(a.y - 4)) - (Math.abs(b.x - 4) + Math.abs(b.y - 4)))[0];
+  return tiles.sort((a,b)=>{const coastal=t=>neighbours(t.x,t.y,mapSize(s)).some(([x,y])=>tileKnown(s,x,y)&&terrain(x,y)==='water');return (s.mapUnlocked&&!BUILDINGS[type].coast?Number(coastal(a))-Number(coastal(b)):0)||(Math.abs(a.x - 4) + Math.abs(a.y - 4)) - (Math.abs(b.x - 4) + Math.abs(b.y - 4));})[0];
 }
 export function build(s, type, x, y) {
   if (!Object.hasOwn(BUILDINGS, type) || !buildingUnlocked(s, type)) return 'This building is not unlocked.';
   if (s.paused) return 'Resume the game to build.';
-  if (type === 'hall' && count(s, 'hall')) return 'You already have a town hall.';
+  if (['hall','guildhall'].includes(type) && count(s, type)) return 'You already have a '+(type==='hall'?'town hall':'guildhall')+'.';
   if(x!==undefined||y!==undefined)return 'Buildings are placed automatically.';
   const tile = freeTile(s, type);
   if (!tile) return 'No suitable explored tile. Assign explorers to discover more terrain.';
@@ -409,6 +446,7 @@ export function build(s, type, x, y) {
   const costIndex=count(s,type);
   if (!spend(s, buildCost(s, type))) return 'Not enough resources.';
   s.buildings.push({ ...tile, type, ...(isHome(type)?{costIndex}:{}) });
+  s.runStats.constructed++;
   if (BUILDINGS[type].workers) s.assignments[type] += Math.min(BUILDINGS[type].workers,idleWorkers(s));
   recordAchievements(s);
   return null;
@@ -422,7 +460,7 @@ export function demolitionQuote(s,x,y){
   if(s.paused)reason='Resume the game to demolish a home.';
   else if(population(s)>capacityAfter)reason='Not enough housing: '+population(s)+' residents need space, but only '+capacityAfter+' spaces would remain.';
   else if(s.researching&&researchRequirements(after,s.researching.id).length)reason='This home is needed by the active research project.';
-  else if((s.wonder.stage>0||s.wonder.remaining>0)&&wonderRequirements(after).length)reason='This home is needed by the Great Observatory. Build replacement housing first.';
+  else if((s.wonder.stage>0||s.wonder.remaining>0)&&wonderRequirements(after,s.wonder.remaining>0?s.wonder.stage:s.wonder.stage-1).length)reason='This home is needed by the Great Observatory. Build replacement housing first.';
   else {const full=Object.entries(refund).find(([key,n])=>s.resources[key]+n>storageCapacity(s,key)+1e-9);if(full)reason='Make room in '+RESOURCE[full[0]].name.toLowerCase()+' storage for the refund.';}
   return {type:home.type,x,y,refund,capacityAfter,reason};
 }
@@ -449,8 +487,11 @@ export function research(s, id) {
   s.researching = { id, remaining: duration, duration };
   return null;
 }
-export function wonderRequirements(s) {
+export function wonderRequirements(s,index=s.wonder.stage) {
   return [
+    ...(s.meta.revolutions>0&&index>=4?['printingPress',...(index>=5?['celestialNavigation']:[])].filter(id=>!s.tech.includes(id)).map(id=>TECH[id].name):[]),
+    ...(s.meta.revolutions>0&&index>=4&&population(s)<84?['84 residents']:[]),
+    ...(s.meta.revolutions>0&&index>=4&&(!count(s,'guildhall')||!count(s,'grandArchive'))?['Guildhall and grand archive']:[]),
     ...(stageIndex(s)<4 ? ['City stage'] : []),
     ...(!s.tech.includes('astronomy') ? ['Astronomy'] : []),
     ...(count(s,'workshop')<3 ? ['3 workshops (' + count(s,'workshop') + '/3)'] : []),
@@ -459,10 +500,10 @@ export function wonderRequirements(s) {
 export function startWonder(s) {
   if (s.paused) return 'Resume the game to build the wonder.';
   if (s.wonder.remaining>0) return 'The current wonder stage is still under construction.';
-  if (s.wonder.stage>=WONDER_STAGES.length) return 'The Great Observatory is complete.';
+  if (s.wonder.stage>=wonderProjects(s).length) return 'The Great Observatory is complete.';
   const missing=wonderRequirements(s);
   if (missing.length) return 'Requires ' + missing.join(', ') + '.';
-  const project=WONDER_STAGES[s.wonder.stage];
+  const project=wonderProjects(s)[s.wonder.stage];
   if (Object.entries(project.cost).some(([k,n])=>n>storageCapacity(s,k))) return 'Expand storage for this wonder stage.';
   if (!spend(s,project.cost)) return 'Not enough resources for this wonder stage.';
   s.wonder.duration=wonderDuration(s,s.wonder.stage); s.wonder.remaining=s.wonder.duration;s.wonder.boosts=0;
@@ -470,7 +511,7 @@ export function startWonder(s) {
 }
 export function wonderBoostQuote(s){
   if(s.wonder.remaining<=0||s.wonder.boosts>=MAX_WONDER_BOOSTS)return null;
-  const cost=Object.fromEntries(Object.entries(WONDER_STAGES[s.wonder.stage].cost).map(([k,n])=>[k,Math.ceil(n*.15*1.75**s.wonder.boosts)]));
+  const cost=Object.fromEntries(Object.entries(wonderProjects(s)[s.wonder.stage].cost).map(([k,n])=>[k,Math.ceil(n*.15*1.75**s.wonder.boosts)]));
   const speed=wonderSpeed(s),nextSpeed=speed+.25,remaining=wonderRemaining(s),nextRemaining=s.wonder.remaining/nextSpeed;
   return {stage:s.wonder.stage,level:s.wonder.boosts,cost,speed,nextSpeed,remaining,nextRemaining,saved:remaining-nextRemaining};
 }
@@ -484,9 +525,9 @@ export function boostWonder(s,stage=s.wonder.stage,level=s.wonder.boosts){
   if(!spend(s,quote.cost))return 'Not enough resources for extra construction supplies.';
   s.wonder.boosts++;return null;
 }
-export const canReevolve = s => s.wonder.stage === WONDER_STAGES.length && s.wonder.remaining === 0;
-export const wonderVisualStep=s=>s.wonder.stage*4+(s.wonder.remaining>0?Math.min(3,Math.floor((1-s.wonder.remaining/s.wonder.duration)*4)):0);
-export const wonderStatus=s=>canReevolve(s)?'First observation complete':s.wonder.remaining>0?'Building '+WONDER_STAGES[s.wonder.stage].name.toLowerCase():s.wonder.stage>0?'Ready for '+WONDER_STAGES[s.wonder.stage].name.toLowerCase():'Not started';
+export const canReevolve = s => s.wonder.stage === wonderProjects(s).length && s.wonder.remaining === 0;
+export const wonderVisualStep=s=>Math.min(4,s.wonder.stage)*4+(s.wonder.remaining>0?Math.min(3,Math.floor((1-s.wonder.remaining/s.wonder.duration)*4)):0);
+export const wonderStatus=s=>canReevolve(s)?(s.meta.revolutions?'Celestial Atlas complete':'First observation complete'):s.wonder.remaining>0?'Building '+wonderProjects(s)[s.wonder.stage].name.toLowerCase():s.wonder.stage>0?'Ready for '+wonderProjects(s)[s.wonder.stage].name.toLowerCase():'Not started';
 export const legacyCost = (s,id) => (Object.hasOwn(LEGACY_UPGRADES,id) ? legacyLevel(s,id)+1 : Infinity);
 export function buyLegacy(s,id) {
   if (s.paused) return 'Resume the game to choose a permanent upgrade.';
@@ -500,8 +541,12 @@ export function reevolve(s, now=Date.now()) {
   if (!canReevolve(s)) return 'Complete the Great Observatory first.';
   recordAchievements(s);
   const meta=JSON.parse(JSON.stringify(s.meta)), name=s.name;
-  meta.insight+=3; meta.revolutions++;
-  meta.history.unshift({ run: meta.revolutions, seconds: s.elapsed, completedAt: now, reward: 3, wonder: WONDER_NAME });
+  const quote=evolutionQuote(s);
+  for(const row of quote.rows)meta.collections.tiers[row.id]=row.reached;
+  meta.collections.claimedItems=[...meta.collections.items];
+  meta.insight+=quote.total; meta.revolutions++;
+  meta.pendingEvolution={base:quote.base,collectionPoints:quote.collectionPoints,itemPoints:quote.itemPoints,total:quote.total};
+  meta.history.unshift({ run: meta.revolutions, seconds: s.elapsed, completedAt: now, reward: quote.total, currency:'EP', wonder: WONDER_NAME });
   meta.history=meta.history.slice(0,20);
   const next=fresh(now,meta); next.name=name;
   for (const key of Object.keys(s)) delete s[key];
@@ -576,7 +621,12 @@ export function estimateWait(s, cost) {
 }
 export function serialize(s, now = Date.now()) { return JSON.stringify({ ...s, lastSaved: now }); }
 function migrate(s) {
-  if(s.version===12)return;
+  if(s.version===13)return;
+  if(s.version===12){
+    s.runStats={...blankStats(),constructed:s.buildings.length,produced:{...s.earned},peakPopulation:s.population,peakTiles:s.exploration.tiles.length};s.guildFocus=null;
+    s.meta.stars=[];s.meta.collections=blankCollections();s.meta.pendingEvolution=null;s.meta.insight+=12*s.meta.revolutions;
+    s.assignments.grandArchive=0;s.version=13;recordCollections(s);return;
+  }
   if(s.version===11){if(s.wonder)s.wonder.boosts=0;s.version=12;return;}
   if(s.version===10){if(s.meta)s.meta.achievements=[];s.version=11;return;}
   if(s.version===9){const indices={};for(const b of s.buildings)if(isHome(b.type)){b.costIndex=indices[b.type]||0;indices[b.type]=b.costIndex+1;}s.version=10;return;}
@@ -638,28 +688,29 @@ export function restore(raw, now = Date.now()) {
       if (s.assignments) for (const type of ['workshop','academy']) if (!Object.hasOwn(s.assignments,type)) s.assignments[type]=0;
     }
     if (s && [2,3,4,5,6].includes(s.version) && s.assignments) s.assignments.researcher=0;
-    if (!s || ![2,3,4,5,6,7,8,9,10,11,12].includes(s.version) || !Array.isArray(s.buildings) || s.buildings.length > MAX_MAP_SIZE**2 || !Array.isArray(s.tech) || s.tech.some(k => !Object.hasOwn(TECH, k)) || new Set(s.tech).size !== s.tech.length ||
+    if (!s || ![2,3,4,5,6,7,8,9,10,11,12,13].includes(s.version) || !Array.isArray(s.buildings) || s.buildings.length > MAX_MAP_SIZE**2 || !Array.isArray(s.tech) || s.tech.some(k => !Object.hasOwn(TECH, k)) || new Set(s.tech).size !== s.tech.length ||
       !['resources', 'earned'].every(field => s[field] && Object.keys(RESOURCE).every(k => Number.isFinite(s[field][k]) && s[field][k] >= 0)) ||
       s.buildings.some(b => !b || !Object.hasOwn(BUILDINGS, b.type) || !Number.isInteger(b.x) || !Number.isInteger(b.y) || b.x < 0 || b.x >= mapSize(s) || b.y < 0 || b.y >= mapSize(s) || !BUILDINGS[b.type].terrain.includes(terrain(b.x, b.y))) ||
       new Set(s.buildings.map(b => `${b.x},${b.y}`)).size !== s.buildings.length || !Number.isFinite(s.lastSaved) || !Number.isFinite(s.elapsed) || s.elapsed < 0 || typeof s.paused !== 'boolean' || typeof s.mapUnlocked !== 'boolean' || typeof s.name !== 'string' || s.name.length > 24) return null;
     s.buildings = s.buildings.map(({x, y, type, costIndex}) => ({x, y, type, ...(isHome(type)?{costIndex}:{})}));
     // Older staffing migration uses the population that those saves already had.
     if (s.version < 5) s.population = capacity(s);
-    while(s.version<12)migrate(s);
+    while(s.version<13)migrate(s);
     if(s.buildings.some(b=>isHome(b.type)&&(!Number.isInteger(b.costIndex)||b.costIndex<0||b.costIndex>=MAX_MAP_SIZE**2)))return null;
     if(!s.exploration||!Number.isInteger(s.exploration.size)||mapSize(s)<9||mapSize(s)>MAX_MAP_SIZE||(mapSize(s)-9)%4!==0||!Array.isArray(s.exploration.tiles)||s.exploration.tiles.length<25||s.exploration.tiles.length>mapTileCount(s)||new Set(s.exploration.tiles).size!==s.exploration.tiles.length||s.exploration.tiles.some(k=>{if(typeof k!=='string'||!/^\d+,\d+$/.test(k))return true;const[x,y]=k.split(',').map(Number);return x>=mapSize(s)||y>=mapSize(s)||k!==tileKey(x,y);})||initialTiles().some(k=>!s.exploration.tiles.includes(k))||!Number.isFinite(s.exploration.progress)||s.exploration.progress<0||s.exploration.progress>=EXPLORATION_WORK||s.buildings.some(b=>!tileKnown(s,b.x,b.y)||BUILDINGS[b.type].coast&&!neighbours(b.x,b.y,mapSize(s)).some(([x,y])=>tileKnown(s,x,y)&&(b.type==='fishery'?terrain(x,y)!=='water':terrain(x,y)==='water'))))return null;
     if(!s.fleet||!Number.isInteger(s.fleet.ships)||s.fleet.ships<0||s.fleet.ships>shipCapacity(s)||!s.fleet.missions||['fishing','exploration'].some(k=>!Number.isInteger(s.fleet.missions[k])||s.fleet.missions[k]<0)||s.fleet.missions.fishing+s.fleet.missions.exploration>s.fleet.ships||s.fleet.ships>0&&!s.tech.includes('shipping')||s.fleet.building!==null&&(!s.fleet.building||!s.tech.includes('shipping')||s.fleet.ships>=shipCapacity(s)||s.fleet.building.duration!==SHIP_DURATION||!Number.isFinite(s.fleet.building.remaining)||s.fleet.building.remaining<=0||s.fleet.building.remaining>SHIP_DURATION))return null;
     if (!s.meta || !Array.isArray(s.meta.achievements) || new Set(s.meta.achievements).size!==s.meta.achievements.length || s.meta.achievements.some(id=>!ACHIEVEMENTS.some(a=>a.id===id)) || !Number.isInteger(s.meta.insight) || s.meta.insight<0 || !Number.isInteger(s.meta.revolutions) || s.meta.revolutions<0 || !s.meta.upgrades ||
       Object.keys(s.meta.upgrades).some(k=>!Object.hasOwn(LEGACY_UPGRADES,k)) || Object.keys(LEGACY_UPGRADES).some(k=>!Number.isInteger(s.meta.upgrades[k]) || s.meta.upgrades[k]<0 || s.meta.upgrades[k]>5) ||
-      !Array.isArray(s.meta.history) || s.meta.history.length>20 || s.meta.history.some(h=>!h || !Number.isInteger(h.run) || h.run<1 || h.run>s.meta.revolutions || !Number.isFinite(h.seconds) || h.seconds<0 || !Number.isFinite(h.completedAt) || h.reward!==3 || h.wonder!==WONDER_NAME)) return null;
+      !Array.isArray(s.meta.history) || s.meta.history.length>20 || s.meta.history.some(h=>!h || !Number.isInteger(h.run) || h.run<1 || h.run>s.meta.revolutions || !Number.isFinite(h.seconds) || h.seconds<0 || !Number.isFinite(h.completedAt) || (h.currency==='EP'?!Number.isSafeInteger(h.reward)||h.reward<12:h.reward!==3) || h.wonder!==WONDER_NAME)) return null;
+    if(!validEvolution(s)||s.tech.some(id=>TECH[id].minEvolution>s.meta.revolutions)||s.guildFocus!==null&&(!Object.hasOwn(GUILDS,s.guildFocus)||!s.tech.includes('guildCharters')||!count(s,'guildhall')||!s.meta.revolutions)||count(s,'guildhall')>1||s.buildings.some(b=>['guildhall','grandArchive'].includes(b.type)&&!buildingUnlocked(s,b.type)))return null;
     if (!Number.isInteger(s.population) || s.population < 6 || s.population > capacity(s) || !Number.isFinite(s.growthProgress) || s.growthProgress < 0 || s.growthProgress >= POPULATION_INTERVAL) return null;
     if (!s.assignments || Object.keys(s.assignments).some(k => !JOB_TYPES.includes(k)) ||
       JOB_TYPES.some(type => !Number.isInteger(s.assignments[type]) || s.assignments[type] < 0 || s.assignments[type] > workerDemand(s,type)) || workers(s) > population(s)) return null;
     if (population(s) >= capacity(s)) s.growthProgress = 0;
     if (s.autoJob!==null && (!JOB_TYPES.includes(s.autoJob) || !workerDemand(s,s.autoJob) || stageIndex(s)<1)) return null;
-    if (!s.wonder || !Number.isInteger(s.wonder.boosts)||s.wonder.boosts<0||s.wonder.boosts>MAX_WONDER_BOOSTS||s.wonder.remaining===0&&s.wonder.boosts!==0 || !Number.isInteger(s.wonder.stage) || s.wonder.stage<0 || s.wonder.stage>WONDER_STAGES.length || !Number.isFinite(s.wonder.remaining) || s.wonder.remaining<0 || !Number.isFinite(s.wonder.duration) || s.wonder.duration<0 ||
-      s.wonder.stage===WONDER_STAGES.length && s.wonder.remaining!==0 || s.wonder.remaining>0 && (s.wonder.duration<=0 || s.wonder.duration>WONDER_STAGES[s.wonder.stage].duration || s.wonder.remaining>s.wonder.duration) ||
-      (s.wonder.stage>0 || s.wonder.remaining>0) && wonderRequirements(s).length) return null;
+    if (!s.wonder || !Number.isInteger(s.wonder.boosts)||s.wonder.boosts<0||s.wonder.boosts>MAX_WONDER_BOOSTS||s.wonder.remaining===0&&s.wonder.boosts!==0 || !Number.isInteger(s.wonder.stage) || s.wonder.stage<0 || s.wonder.stage>wonderProjects(s).length || !Number.isFinite(s.wonder.remaining) || s.wonder.remaining<0 || !Number.isFinite(s.wonder.duration) || s.wonder.duration<0 ||
+      s.wonder.stage===wonderProjects(s).length && s.wonder.remaining!==0 || s.wonder.remaining>0 && (s.wonder.duration<=0 || s.wonder.duration>wonderProjects(s)[s.wonder.stage].duration || s.wonder.remaining>s.wonder.duration) ||
+      (s.wonder.stage>0 || s.wonder.remaining>0) && wonderRequirements(s,s.wonder.remaining>0?s.wonder.stage:s.wonder.stage-1).length) return null;
     if (s.researching !== null && (!s.researching || !Object.hasOwn(TECH,s.researching.id) || s.tech.includes(s.researching.id)&&!TECH[s.researching.id].repeatable ||
       !Number.isFinite(s.researching.duration) || s.researching.duration<=0 || s.researching.duration>researchBaseDuration(s,s.researching.id) || !Number.isFinite(s.researching.remaining) || s.researching.remaining <= 0 || s.researching.remaining > s.researching.duration ||
       researchRequirements(s,s.researching.id).length > 0)) return null;

@@ -241,7 +241,7 @@ test('old saves preserve completed systems and migrate to shared research withou
   const old=opening(); old.version=2; delete old.researching;
   old.tech=['map']; old.mapUnlocked=true; old.buildings[0].level=4;
   const restored=restore(serialize(old,1000),1000);
-  assert.ok(restored); assert.equal(restored.state.version,12);
+  assert.ok(restored); assert.equal(restored.state.version,13);
   assert.equal(restored.state.buildings.length,old.buildings.length);
   assert.ok(restored.state.buildings.every(b=>!Object.hasOwn(b,'level')));
   for(const id of ['agriculture','forestry','housing','masonry','writing','scholarship','map'])assert.ok(restored.state.tech.includes(id));
@@ -333,7 +333,7 @@ test('version 3 saves preserve stockpiles and initialize staffing within populat
   for(let i=0;i<3;i++)old.buildings.push({...freeTile(old,'lumber'),type:'lumber'});
   old.buildings.push({...freeTile(old,'quarry'),type:'quarry'});
   const loaded=restore(serialize(old,1000),1000);
-  assert.ok(loaded); assert.equal(loaded.state.version,12);
+  assert.ok(loaded); assert.equal(loaded.state.version,13);
   near(loaded.state.resources.wheat,900); near(loaded.state.resources.wood,350); near(loaded.state.resources.science,1200);
   assert.equal(workers(loaded.state),capacity(loaded.state));
   assert.equal(assignedWorkers(loaded.state,'quarry'),0);
@@ -433,7 +433,7 @@ test('legacy populated houses and completed trading remain available after migra
   const old=copy(mapped); old.version=4; old.tech.push('trade');
   delete old.population; delete old.growthProgress;
   const loaded=restore(serialize(old,1000),1000);
-  assert.ok(loaded); assert.equal(loaded.state.version,12);
+  assert.ok(loaded); assert.equal(loaded.state.version,13);
   assert.equal(population(loaded.state),capacity(loaded.state));
   assert.deepEqual(loaded.state.assignments,old.assignments);
   assert.equal(tradeUnlocked(loaded.state),true); assert.ok(loaded.state.tech.includes('markets'));

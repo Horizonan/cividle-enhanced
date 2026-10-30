@@ -133,3 +133,7 @@
   .app-header{gap:6px;padding-left:10px;padding-right:10px}.brand{font-size:15px}.stage-badge{font-size:9px;padding:3px 4px}.header-controls{gap:3px}.header-controls button{padding:8px;font-size:11px}
   main,main.early{padding-left:12px;padding-right:12px}.journey-controls{padding-left:12px;padding-right:12px}.build-actions{gap:10px}.build-actions button{min-width:78px;padding:10px 12px}.arrival-priority{grid-template-columns:minmax(0,1fr)}.arrival-priority select{max-width:none}
 }
+
+@media(max-width:700px){.constellation-sky{padding:20px 14px}.sky-heading{align-items:flex-start;gap:12px}.sky-heading h2{font-size:21px}.ep-balance strong{font-size:30px}.ep-balance span{max-width:70px;font-size:10px}.constellation-grid{grid-template-columns:1fr}.star-detail{align-items:stretch;flex-direction:column;gap:12px}.star-buy{width:100%}.collections-grid,.guild-grid,.memento-grid{grid-template-columns:1fr}.evolution-reveal{padding:18px 0}.evolution-dialog h2{font-size:25px}.evolution-dialog .dialog-actions{flex-direction:column}.evolution-dialog .dialog-actions button{width:100%;min-height:48px}.star-node{min-height:76px}.run-history-row{gap:12px;flex-wrap:wrap}}
+
+@media(max-width:700px){.constellation-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px}.constellation-tabs button{min-height:44px;color:#b8c8d3;border-color:#435a6c;font-size:12px;padding:8px}.constellation-tabs button[aria-pressed="true"]{color:#f2dfae;background:#293d4d;border-color:#9eb6c9}.constellation:not(.active){display:none}}

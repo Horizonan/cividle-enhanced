@@ -45,7 +45,7 @@ test('supplies speed only the wonder and the final observation still enables a c
   assert.equal(reevolve(last,1000),null);assert.deepEqual(last.wonder,{stage:0,remaining:0,duration:0,boosts:0});
 });
 test('format 11 projects retain their existing work on migration and invalid speed data is rejected',()=>{
-  const old=active();old.version=11;delete old.wonder.boosts;const loaded=restore(serialize(old,1000),1000);assert.ok(loaded);assert.equal(loaded.state.version,12);assert.equal(loaded.state.wonder.boosts,0);near(wonderRemaining(loaded.state),1800);
+  const old=active();old.version=11;delete old.wonder.boosts;const loaded=restore(serialize(old,1000),1000);assert.ok(loaded);assert.equal(loaded.state.version,13);assert.equal(loaded.state.wonder.boosts,0);near(wonderRemaining(loaded.state),1800);
   for(const bad of [undefined,-1,.5,5,'1']){const s=active();s.wonder.boosts=bad;assert.equal(restore(serialize(s,1000),1000),null);}
   const inactive=fresh();inactive.wonder.boosts=1;assert.equal(restore(serialize(inactive,1000),1000),null);
 });

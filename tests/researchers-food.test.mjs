@@ -66,7 +66,7 @@ test('format 6 migration preserves permanent progress and active work, leaving r
   const s=town(); s.version=6; delete s.assignments.researcher; s.meta.insight=3; s.meta.revolutions=1;
   assert.equal(research(s,'markets'),null); tick(s,30); const remaining=s.researching.remaining;
   const loaded=restore(serialize(s,1000),1000);
-  assert.ok(loaded); assert.equal(loaded.state.version,12); assert.equal(loaded.state.meta.insight,3); assert.equal(loaded.state.meta.revolutions,1);
+  assert.ok(loaded); assert.equal(loaded.state.version,13); assert.equal(loaded.state.meta.insight,15); assert.equal(loaded.state.meta.revolutions,1);
   assert.equal(assignedWorkers(loaded.state,'researcher'),0); near(loaded.state.researching.remaining,remaining);
 });
 test('all residents consume wheat, independently of assignments, online and offline',()=>{

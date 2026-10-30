@@ -92,8 +92,8 @@ test('RE-Evolution requires a finished wonder and clears run progress while pres
   const s=completed(); s.name='Riverbend'; s.autoJob='workshop'; s.paused=true;
   assert.match(reevolve(s),/Resume/); s.paused=false;
   const seconds=s.elapsed; assert.equal(reevolve(s,2000),null);
-  assert.equal(s.name,'Riverbend'); assert.equal(s.meta.insight,3); assert.equal(s.meta.revolutions,1);
-  assert.deepEqual(s.meta.history,[{run:1,seconds,completedAt:2000,reward:3,wonder:WONDER_NAME}]);
+  assert.equal(s.name,'Riverbend'); assert.equal(s.meta.insight,s.meta.pendingEvolution.total); assert.equal(s.meta.revolutions,1);
+  assert.deepEqual(s.meta.history,[{run:1,seconds,completedAt:2000,reward:s.meta.insight,currency:'EP',wonder:WONDER_NAME}]);
   assert.equal(s.elapsed,0); assert.equal(s.population,6); assert.equal(s.autoJob,null);
   assert.deepEqual(s.buildings,[]); assert.deepEqual(s.tech,[]); assert.equal(s.mapUnlocked,false);
   assert.equal(s.wonder.stage,0); assert.equal(s.researching,null);
@@ -117,11 +117,11 @@ test('permanent upgrades spend Insight once and preserve already-started duratio
   s.meta.upgrades.knowledge=5; const old=copy(s); assert.match(buyLegacy(s,'knowledge'),/not available/); assert.deepEqual(s,old);
   s.meta.insight=0; assert.match(buyLegacy(s,'production'),/Not enough/);
 });
-test('three first-run Insight can improve all three systems and shorten the next run',()=>{
-  const s=completed(); assert.equal(reevolve(s),null);
+test('earlier generic upgrades remain compatible and shorten the repeated Observatory route',()=>{
+  const s=completed(); assert.equal(reevolve(s),null);const awarded=s.meta.insight;
   for(const key of Object.keys(LEGACY_UPGRADES))assert.equal(buyLegacy(s,key),null);
-  assert.equal(s.meta.insight,0);
-  const next=simulateFirstRun(()=>{},s.meta);
+  assert.equal(s.meta.insight,awarded-3);
+  const next=simulateFirstRun(()=>{},s.meta,{observatoryOnly:true});
   assert.ok(next.state.elapsed<full.state.elapsed*.95);
   assert.equal(next.state.meta.history.length,1);
 });
@@ -133,7 +133,7 @@ test('format 5 saves keep population, progress and staffing without granting new
   delete s.resources.tool; delete s.earned.tool; delete s.assignments.workshop; delete s.assignments.academy;
   delete s.meta; delete s.wonder; delete s.autoJob;
   const result=restore(JSON.stringify(s),s.lastSaved);
-  assert.ok(result); assert.equal(result.state.version,12); assert.equal(result.state.population,30);
+  assert.ok(result); assert.equal(result.state.version,13); assert.equal(result.state.population,30);
   assert.equal(result.state.growthProgress,27); assert.equal(result.state.resources.tool,0);
   assert.equal(result.state.meta.insight,0); assert.equal(result.state.wonder.stage,0);
   assert.equal(result.state.assignments.lumber,s.assignments.lumber);

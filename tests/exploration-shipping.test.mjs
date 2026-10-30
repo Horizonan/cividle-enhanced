@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {fresh,TECH,RESOURCE,harvest,build,buildCost,freeTile,terrain,tileKnown,assignWorkers,workerDemand,assignedWorkers,idleWorkers,tick,EXPLORATION_WORK,explorationRate,research,researchRemaining,startShip,assignShips,SHIP_DURATION,SHIP_COST,foodConsumption,foodSupply,rates,storageCapacity,serialize,restore,initialTiles,reevolve,estimateWait} from '../dist/model.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} ≠ ${b}`);
 const copy=s=>structuredClone(s);
-function mapped(all=false){const s=fresh(1000);s.tech=Object.keys(TECH);s.mapUnlocked=true;for(const k of Object.keys(RESOURCE))s.resources[k]=10000;s.resources.fish=0;if(all)s.exploration.tiles=Array.from({length:81},(_,i)=>i%9+','+Math.floor(i/9));return s;}
+function mapped(all=false){const s=fresh(1000);s.tech=Object.keys(TECH).filter(id=>!TECH[id].minEvolution);s.mapUnlocked=true;for(const k of Object.keys(RESOURCE))s.resources[k]=10000;s.resources.fish=0;if(all)s.exploration.tiles=Array.from({length:81},(_,i)=>i%9+','+Math.floor(i/9));return s;}
 function navy(){const s=mapped(true);assert.equal(build(s,'wharf'),null);assert.equal(startShip(s),null);tick(s,SHIP_DURATION);return s;}
 
 test('stronger food needs require two fields while manual harvest keeps the start playable',()=>{
@@ -84,7 +84,7 @@ test('ship timers and assignments survive saves; offline construction buys no ad
 test('old maps retain every existing building position during migration',()=>{
   const s=mapped(true);s.earned.wheat=100;for(let n=0;n<12;n++){s.resources.wheat=10000;assert.equal(build(s,'farm'),null);}
   s.version=7;delete s.exploration;delete s.fleet;delete s.resources.fish;delete s.earned.fish;for(const job of ['fishery','explorer','sailor'])delete s.assignments[job];
-  const loaded=restore(serialize(s,1000),1000);assert.ok(loaded);assert.equal(loaded.state.version,12);assert.deepEqual(loaded.state.buildings,s.buildings);
+  const loaded=restore(serialize(s,1000),1000);assert.ok(loaded);assert.equal(loaded.state.version,13);assert.deepEqual(loaded.state.buildings,s.buildings);
   for(const b of s.buildings)assert.ok(tileKnown(loaded.state,b.x,b.y));assert.equal(loaded.state.fleet.ships,0);
 });
 test('malformed exploration and fleet saves are rejected',()=>{

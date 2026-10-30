@@ -74,6 +74,6 @@ test('townhouse refunds contain all original materials and coins',()=>{
 });
 test('format 9 saves infer historical costs and format 10 refuses invalid cost records',()=>{
   const s=homes();s.version=9;for(const b of s.buildings)delete b.costIndex;
-  const loaded=restore(serialize(s,1000),1000);assert.ok(loaded);assert.equal(loaded.state.version,12);assert.deepEqual(loaded.state.buildings.filter(b=>b.type==='house').map(b=>b.costIndex),[0,1,2]);
+  const loaded=restore(serialize(s,1000),1000);assert.ok(loaded);assert.equal(loaded.state.version,13);assert.deepEqual(loaded.state.buildings.filter(b=>b.type==='house').map(b=>b.costIndex),[0,1,2]);
   for(const invalid of [undefined,-1,.5,1681,'2']){const bad=structuredClone(loaded.state);bad.buildings.find(b=>b.type==='house').costIndex=invalid;assert.equal(restore(serialize(bad,1000),1000),null);}
 });

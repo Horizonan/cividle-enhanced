@@ -20,7 +20,7 @@ test('completing a survey adds unexplored territory while preserving all existin
   for(const[k,n]of Object.entries(cost))near(s.resources[k],old.resources[k]-n);
   assert.equal(mapSize(s),9);tick(s,researchDuration(s,'cartography'));
   assert.equal(mapSize(s),13);assert.equal(mapTileCount(s),169);assert.equal(s.exploration.tiles.length,81);
-  assert.deepEqual(s.buildings,old.buildings);assert.deepEqual(s.exploration.tiles,old.exploration.tiles);assert.deepEqual(s.meta,old.meta);
+  assert.deepEqual(s.buildings,old.buildings);assert.deepEqual(s.exploration.tiles,old.exploration.tiles);assert.deepEqual(s.meta.upgrades,old.meta.upgrades);assert.equal(s.meta.insight,old.meta.insight);assert.ok(s.meta.collections.records.stone>=old.meta.collections.records.stone);
   assert.equal(s.population,old.population);assert.equal(s.wonder.stage,old.wonder.stage);assert.equal(s.mapUnlocked,true);
   assert.ok(!s.tech.includes('cartography'));assert.equal(workerDemand(s,'explorer'),4);
 });
@@ -60,7 +60,7 @@ test('map rendering includes expanded bounds and keeps unknown terrain hidden',(
 });
 test('format 8 migration preserves completed exploration and building coordinates',()=>{
   const s=complete();s.version=8;delete s.exploration.size;
-  const result=restore(serialize(s,1000),1000);assert.ok(result);assert.equal(result.state.version,12);
+  const result=restore(serialize(s,1000),1000);assert.ok(result);assert.equal(result.state.version,13);
   assert.equal(mapSize(result.state),9);assert.equal(result.state.exploration.tiles.length,81);assert.deepEqual(result.state.buildings,s.buildings);
 });
 test('expanded survey work round-trips and malformed region sizes are rejected',()=>{

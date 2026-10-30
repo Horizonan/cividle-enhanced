@@ -10,7 +10,7 @@ Reproduce with `node scripts/pacing-audit.mjs`. Detailed route output is retaine
 | Harvesting at one click per 0.35 seconds | 123 min | 300 min | 7.62 h |
 | Early Study and researchers | 125 min | 292 min | 7.59 h |
 | Optional Managed forests | 123 min | 308 min | 7.75 h |
-| Optional fishing research, wharf and fishing ship | 123 min | 382 min | 8.86 h |
+| Optional fishing research, wharf and fishing ship | 123 min | 315 min | 7.95 h |
 | Purchase affordable Observatory supply boosts | 123 min | 300 min | 7.23 h |
 | Decisions at 15-minute check-ins | 285 min | 510 min | 11.26 h |
 
@@ -31,7 +31,7 @@ The core attentive route meets the 6–8 hour target. Optional branches and infr
 2. Early researchers reach City about eight minutes earlier but improve the final finish by only about two minutes on this fixed building strategy. Tools, bricks and Academy materials remain bottlenecks. Buying the early Study also competes with early wood spending. Research speed is useful but does not accelerate material production.
 3. All seven routes finish without food-blocked population growth. This assumes sensible farming and Irrigation; it is not evidence that arbitrary housing growth is safe. Separate shortage checks verify that empty food pauses arrivals without deleting citizens, and the return report identifies the delay.
 4. Capped goods are common during long projects. The reference spends approximately 246 minutes with wheat at capacity and 167 with knowledge at capacity. This is a reason to spend goods or choose optional branches, rather than proof that every stock needs a larger cap. The audit's full-storage counters sample end-of-step stocks; the player return report additionally catches production limited by storage within a step.
-5. Coastal availability matters. On this building-heavy route the first region's useful wharf sites are occupied. The optional fleet route explores all 81 tiles, researches Frontier surveying and discovers a new coast before building the wharf. This is recoverable with existing technology, but it makes shipping a substantial optional detour. Shipping is not required for the first RE-Evolution. A future coastal-placement improvement could reduce this friction.
+5. Coastal availability matters. Automatic construction after Mapping now prefers inland tiles when available. The optional first-run fleet route can use a preserved wharf site and completes in 7.95 hours. Shipping remains optional for the first RE-Evolution; later civilizations require a ship for Celestial navigation. Older occupied coastline can still be recovered by Frontier surveying.
 6. Fifteen-minute check-ins take 11.26 hours because short research projects and ready purchases wait for the next visit. The 6–8 hour claim should remain scoped to an attentive route. Making every intermittent route fit that target would require a separate design change, such as a deliberate research queue, rather than reducing every timer.
 
 ## Changes made during this check
@@ -39,3 +39,13 @@ The core attentive route meets the 6–8 hour target. Optional branches and infr
 Next-milestone guidance now catches a genuine opening obstacle: Woodcutting's wheat cost exceeds early field-only capacity, so it directs players to construct a barn before returning to research. The return report explains full stores and food-blocked arrivals. The audit also enforces storage feasibility instead of relying on a long unexplained wait, and the obsolete opening timings in the README were corrected.
 
 Existing save stocks, research progress, population and Observatory construction remain intact. No optional branch or achievement was made mandatory for RE-Evolution.
+
+## Constellations and the second civilization (0.2)
+
+The first-civilization reference remains 7.61 hours and now earns 35 EP: 12 for completion, 18 from new collection tiers, and 5 mementos. This is a deterministic reference, not a fixed reward for every player.
+
+The extended second-civilization route buys Seed, Chisel and Thought for 15 EP, repeats the early economy, then funds Guild charters, a guildhall, Waterpower, Renaissance, Printing press, frontier expansion, two grand archives, eight fields, four townhouses, Shipping, a wharf and a completed ship, Celestial navigation and both additional wonder stages. It reaches the Celestial Atlas in approximately **11.99 hours**, including the repeated Observatory. Its larger scope intentionally lasts beyond the first run. Every purchase uses produced goods, valid storage, gradually arriving residents and explored terrain; no starting goods or technology are injected. No guild specialization, research clicks or supply boosts are assumed.
+
+The repeat route reaches Mapping at about 106 minutes and the first observation at 434 minutes. Exploration for an available wharf is a visible later bottleneck. The route stops exploring for a wharf as soon as one becomes available; it does not wait unnecessarily for the entire expanded map. After Mapping, automatic inland construction prefers non-coastal terrain when available, preserving coast for later wharves. Existing buildings are never moved.
+
+Reproduce the second route with the produced-resource test in tests/evolution.test.mjs. It validates all six paid stages, the ship, new research, 84 residents, archive storage, new mementos and the next reset. Separate checks cover old-save credit, permanent star effects, claimed-tier duplication, paused/offline progress, active-timer stability and the skippable reward receipt.
