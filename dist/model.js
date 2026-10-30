@@ -1,5 +1,5 @@
-import {blankCollections,blankStats,recordCollections,evolutionQuote,hasStar,validEvolution} from './evolution.js';
-export {COLLECTIONS,MEMENTOS,CONSTELLATIONS,STARS,hasStar,evolutionQuote,buyStar,acknowledgeEvolution} from './evolution.js';
+import {blankCollections,blankStats,recordCollections,evolutionQuote,hasStar,starBonus,validEvolution} from './evolution.js';
+export {COLLECTIONS,MEMENTOS,CONSTELLATIONS,STARS,prerequisites,starBonus,constellationBonuses,BONUS_LABELS,LEGACY_STAR_IDS,hasStar,evolutionQuote,buyStar,acknowledgeEvolution} from './evolution.js';
 export const RESOURCE = {
   wheat: { name: 'Wheat' }, wood: { name: 'Wood' }, stone: { name: 'Stone' },
   science: { name: 'Knowledge' }, coin: { name: 'Coins' }, brick: { name: 'Bricks' }, tool: { name: 'Tools' }, fish: { name: 'Fish' },
@@ -120,8 +120,8 @@ export const mapSize=s=>s.exploration?.size??9;
 export const mapTileCount=s=>mapSize(s)**2;
 export const frontierLevel=s=>(mapSize(s)-9)/4;
 const researchBaseDuration=(s,id)=>TECH[id].duration*(TECH[id].repeatable?1.25**frontierLevel(s):1);
-export const researchDuration = (s,id) => researchBaseDuration(s,id) * (hasStar(s,'thought')?.85:1) / (1 + .1 * legacyLevel(s,'knowledge'));
-export const wonderDuration = (s,index) => wonderProjects(s)[index].duration * (hasStar(s,'vision')?.85:1) / (1 + .1 * legacyLevel(s,'knowledge'));
+export const researchDuration = (s,id) => researchBaseDuration(s,id) * (hasStar(s,'thought')?.85:1) / (1+starBonus(s,'research')) / (1 + .1 * legacyLevel(s,'knowledge'));
+export const wonderDuration = (s,index) => wonderProjects(s)[index].duration * (hasStar(s,'vision')?.85:1) / (1+starBonus(s,'wonder')) / (1 + .1 * legacyLevel(s,'knowledge'));
 export const STORAGE_LIMIT = 10000;
 export const POPULATION_INTERVAL = 60;
 export const COINS_PER_PERSON = .01;
@@ -136,15 +136,15 @@ export const researchSpeed = s => (1 + .05 * assignedWorkers(s,'researcher'))*(s
 export const researchRemaining = s => s.researching ? s.researching.remaining / researchSpeed(s) : 0;
 const STORAGE_TECH = ['granaries', 'stockpiles', 'warehousing', 'archives', 'organizedStorage'];
 export function buildingStorage(s,type){
-  const d=BUILDINGS[type],bonus=(d?.dedicatedStorage&&s.tech.includes('organizedStorage')?3:1)*(1+.25*legacyLevel(s,'storage'))*(hasStar(s,'granary')?1.25:1);
-  return Object.fromEntries(Object.entries(d?.storage||{}).map(([k,n])=>[k,n*bonus]));
+  const d=BUILDINGS[type],bonus=(d?.dedicatedStorage&&s.tech.includes('organizedStorage')?3:1)*(1+.25*legacyLevel(s,'storage'))*(hasStar(s,'granary')?1.25:1)*(1+starBonus(s,'storage'));
+  return Object.fromEntries(Object.entries(d?.storage||{}).map(([k,n])=>[k,n*bonus*(k==='science'?1+starBonus(s,'scienceStorage'):1)]));
 }
 export function storageCapacity(s, resource) {
   let base=resource==='wheat'?50:25;
   if(resource==='science')base=s.tech.includes('printingPress')?8000:s.tech.includes('organizedStorage')?4000:s.tech.includes('archives')?500:25;
   else if(resource!=='wheat'&&s.tech.includes('stockpiles'))base+=200;
   const buildings=s.buildings.reduce((n,b)=>n+(BUILDINGS[b.type].storage?.[resource]||0)*(BUILDINGS[b.type].dedicatedStorage&&s.tech.includes('organizedStorage')?3:1),0);
-  return Math.floor((base+buildings)*(1+.25*legacyLevel(s,'storage'))*(hasStar(s,'granary')?1.25:1));
+  return Math.floor((base+buildings)*(1+.25*legacyLevel(s,'storage'))*(hasStar(s,'granary')?1.25:1)*(1+starBonus(s,'storage'))*(resource==='science'?1+starBonus(s,'scienceStorage'):1));
 }
 export function terrain(x, y) {
   if(x>=9||y>=9){if((x+2*y)%17<3)return 'water';if((x*11+y*7)%13<3)return 'rock';if((x*3+y*5)%7<2)return 'forest';return 'grass';}
@@ -164,7 +164,7 @@ export function suitableTile(s,type,x,y){
 }
 export const shipCapacity=s=>count(s,'wharf')*2;
 export const shipCrewing=s=>staffing(s,'sailor');
-export const explorationRate=s=>s.mapUnlocked && s.exploration.tiles.length<mapTileCount(s) ? (assignedWorkers(s,'explorer')+s.fleet.missions.exploration*2*shipCrewing(s))*(hasStar(s,'trail')?1.25:1) : 0;
+export const explorationRate=s=>s.mapUnlocked && s.exploration.tiles.length<mapTileCount(s) ? (assignedWorkers(s,'explorer')+s.fleet.missions.exploration*2*shipCrewing(s))*(hasStar(s,'trail')?1.25:1)*(1+starBonus(s,'exploration')) : 0;
 function revealTile(s){
   const frontier=new Set();
   for(const key of s.exploration.tiles){const [x,y]=key.split(',').map(Number);for(const [a,b]of neighbours(x,y,mapSize(s)))if(!tileKnown(s,a,b))frontier.add(tileKey(a,b));}
@@ -196,7 +196,7 @@ const requirementCount=(s,type)=>type==='house'?Math.floor((capacity(s)-6)/6):co
 export const constructionUnlocked = s => s.earned.wheat >= 10;
 export const capacity = s => 6 + s.buildings.reduce((total,b)=>total+(BUILDINGS[b.type]?.housing||0),0);
 export const population = s => s.population;
-export const foodConsumption = s => population(s)*WHEAT_PER_PERSON*(hasStar(s,'hearth')?.9:1);
+export const foodConsumption = s => population(s)*WHEAT_PER_PERSON*(hasStar(s,'hearth')?.9:1)*Math.max(.4,1-starBonus(s,'foodUse'));
 export const wheatSupply = s => s.buildings.reduce((n,b)=>n+(BUILDINGS[b.type].output.wheat||0)*multiplier(s,b)*staffing(s,b.type),0);
 export const fishSupply=s=>s.buildings.reduce((n,b)=>n+(BUILDINGS[b.type].output.fish||0)*multiplier(s,b)*staffing(s,b.type),0)+s.fleet.missions.fishing*.3*shipCrewing(s)*multiplier(s,{type:'ship'});
 export const foodSupply=s=>wheatSupply(s)+fishSupply(s);
@@ -265,7 +265,7 @@ export function setArrivalJob(s,type) {
   if (stageIndex(s) < 1 || type !== null && (!JOB_TYPES.includes(type) || !workerDemand(s,type))) return 'This job priority is not available.';
   s.autoJob = type; return null;
 }
-export const nextArrival = s => population(s) < capacity(s) ? POPULATION_INTERVAL - s.growthProgress : null;
+export const nextArrival = s => population(s) < capacity(s) ? (POPULATION_INTERVAL - s.growthProgress)/(1+starBonus(s,'growth')) : null;
 export const workerDemand = (s, type) => type==='researcher' ? count(s,'study')*2+count(s,'academy')*4 : type==='explorer' ? (s.tech.includes('map')&&s.exploration?.tiles.length<mapTileCount(s)?4:0) : type==='sailor' ? ((s.fleet?.missions.fishing||0)+(s.fleet?.missions.exploration||0))*2 : count(s,type) * (BUILDINGS[type]?.workers || 0);
 export const assignedWorkers = (s, type) => s.assignments?.[type] || 0;
 export const workers = s => JOB_TYPES.reduce((n, type) => n + assignedWorkers(s,type), 0);
@@ -326,6 +326,17 @@ export function multiplier(s, b) {
   if(s.guildFocus==='agrarian')n*=food?1.25:industry?.9:1;
   if(s.guildFocus==='industry')n*=industry?1.35:food?.9:1;
   if(s.guildFocus==='scholars'&&raw)n*=.9;
+  n*=1+starBonus(s,'all');
+  if(food)n*=1+starBonus(s,'food');
+  if(raw)n*=1+starBonus(s,'raw');
+  if(industry)n*=1+starBonus(s,'industry');
+  if(knowledge)n*=1+starBonus(s,'science');
+  if(b.type==='farm')n*=1+starBonus(s,'wheat');
+  if(b.type==='quarry')n*=1+starBonus(s,'stone');
+  if(b.type==='kiln')n*=1+starBonus(s,'brick');
+  if(b.type==='workshop')n*=1+starBonus(s,'tool');
+  if(b.type==='fishery')n*=1+starBonus(s,'fish');
+  if(b.type==='ship')n*=1+starBonus(s,'shipFish');
   return n;
 }
 function production(s, dt = 1, audit = null) {
@@ -345,7 +356,7 @@ function production(s, dt = 1, audit = null) {
   const boatOutput=Math.min(s.fleet.missions.fishing*.3*shipCrewing(s)*multiplier(s,{type:'ship'}),Math.max(0,(storageCapacity(s,'fish')-s.resources.fish)/dt-net.fish));
   net.fish+=boatOutput;gross.fish+=boatOutput;
   if (coinsUnlocked(s)) {
-    const amount = Math.max(0,Math.min(population(s) * COINS_PER_PERSON*(hasStar(s,'exchange')?1.2:1),(storageCapacity(s,'coin') - s.resources.coin) / dt));
+    const amount = Math.max(0,Math.min(population(s) * COINS_PER_PERSON*(hasStar(s,'exchange')?1.2:1)*(1+starBonus(s,'coins')),(storageCapacity(s,'coin') - s.resources.coin) / dt));
     net.coin += amount; gross.coin += amount;
   }
   net.wheat=Math.max(-s.resources.wheat/dt,net.wheat);
@@ -375,7 +386,7 @@ export function tick(s, seconds, audit = null) {
     const researchRate=researchSpeed(s);
     const foodDeficit=foodConsumption(s)-foodSupply(s), foodStock=s.resources.wheat+s.resources.fish, foodDeadline=foodStock>1e-9 && foodDeficit>1e-9 ? foodStock/foodDeficit : Infinity;
     const exploreRate=explorationRate(s);
-    const dt = Math.min(remaining, 1, foodDeadline, s.researching ? s.researching.remaining/researchRate : Infinity, s.wonder?.remaining > 0 ? wonderRemaining(s) : Infinity, growing ? nextArrival(s) : Infinity, exploreRate>0?(EXPLORATION_WORK-s.exploration.progress)/exploreRate:Infinity,s.fleet.building?.remaining??Infinity);
+    const dt = Math.min(remaining, 1, foodDeadline, s.researching ? s.researching.remaining/researchRate : Infinity, s.wonder?.remaining > 0 ? wonderRemaining(s) : Infinity, growing ? nextArrival(s) : Infinity, exploreRate>0?(EXPLORATION_WORK-s.exploration.progress)/exploreRate:Infinity,s.fleet.building?s.fleet.building.remaining/(1+starBonus(s,'shipBuild')):Infinity);
     const { net, gross } = production(s, dt, audit);
     if(audit){
       if(!foodSufficient(s)&&population(s)<capacity(s))audit.hunger+=dt;
@@ -388,7 +399,7 @@ export function tick(s, seconds, audit = null) {
     }
     s.elapsed += dt; remaining -= dt;
     if (growing) {
-      s.growthProgress += dt;
+      s.growthProgress += dt*(1+starBonus(s,'growth'));
       if (s.growthProgress >= POPULATION_INTERVAL - 1e-9) {
         s.population++; s.growthProgress = 0;
         if (s.autoJob && stageIndex(s)>=1 && assignedWorkers(s,s.autoJob)<workerDemand(s,s.autoJob)) s.assignments[s.autoJob]++;
@@ -403,7 +414,7 @@ export function tick(s, seconds, audit = null) {
       if (s.wonder.remaining <= 1e-9) { s.wonder.remaining=0; s.wonder.duration=0; s.wonder.boosts=0; s.wonder.stage++; }
     }
     if(exploreRate>0){s.exploration.progress+=dt*exploreRate;if(s.exploration.progress>=EXPLORATION_WORK-1e-9){revealTile(s);s.exploration.progress=0;if(s.exploration.tiles.length===mapTileCount(s)){s.assignments.explorer=0;s.fleet.missions.exploration=0;s.assignments.sailor=Math.min(assignedWorkers(s,'sailor'),workerDemand(s,'sailor'));if(s.autoJob==='explorer'||s.autoJob==='sailor'&&!workerDemand(s,'sailor'))s.autoJob=null;}}}
-    if(s.fleet.building){s.fleet.building.remaining-=dt;if(s.fleet.building.remaining<=1e-9){s.fleet.ships++;s.fleet.building=null;}}
+    if(s.fleet.building){s.fleet.building.remaining-=dt*(1+starBonus(s,'shipBuild'));if(s.fleet.building.remaining<=1e-9){s.fleet.ships++;s.fleet.building=null;}}
   }
   recordAchievements(s);
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {simulateFirstRun} from '../scripts/balance-run.mjs';
-import {fresh,tick,harvest,build,demolishHome,marketTrade,recordAchievements,evolutionQuote,reevolve,buyStar,hasStar,acknowledgeEvolution,CONSTELLATIONS,STARS,serialize,restore,foodConsumption,multiplier,researchDuration,wonderDuration,storageCapacity,explorationRate,researchSpeed,setGuild,GUILDS,buildingUnlocked,visibleTechnologies,researchRequirements,wonderProjects,startWonder,wonderRemaining,canReevolve,boostWonder,assignWorkers,count,JOB_TYPES} from '../dist/model.js';
+import {fresh,tick,harvest,build,demolishHome,marketTrade,recordAchievements,evolutionQuote,reevolve,buyStar,hasStar,acknowledgeEvolution,CONSTELLATIONS,STARS,LEGACY_STAR_IDS,serialize,restore,foodConsumption,multiplier,researchDuration,wonderDuration,storageCapacity,explorationRate,researchSpeed,setGuild,GUILDS,buildingUnlocked,visibleTechnologies,researchRequirements,wonderProjects,startWonder,wonderRemaining,canReevolve,boostWonder,assignWorkers,count,JOB_TYPES} from '../dist/model.js';
 const base=simulateFirstRun().state;
 const completed=()=>structuredClone(base),near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,a+' != '+b);
 function next(){const s=completed();reevolve(s,2000);return s;}
@@ -30,7 +30,7 @@ test('stars enforce evolution, prerequisites, balance, uniqueness and pause with
  s.meta.insight=100;s.paused=true;before=structuredClone(s);assert.ok(buyStar(s,'chisel'));assert.deepEqual(s,before);
 });
 test('every constellation bonus affects its own system and stacks with retained upgrades',()=>{
- const s=next();s.meta.insight=200;const ordinary=structuredClone(s);for(const star of STARS)assert.equal(buyStar(s,star.id),null);
+ const s=next();s.meta.insight=200;const ordinary=structuredClone(s);for(const id of LEGACY_STAR_IDS)assert.equal(buyStar(s,id),null);
  near(multiplier(s,{type:'farm'}),1.2*1.1);near(multiplier(s,{type:'lumber'}),1.15*1.1);near(multiplier(s,{type:'quarry'}),1.15*1.1);near(multiplier(s,{type:'kiln'}),1.2*1.1);near(multiplier(s,{type:'workshop'}),1.2*1.1);near(multiplier(s,{type:'grandArchive'}),1.25*1.1);near(multiplier(s,{type:'ship'}),1.2*1.3*1.1);
  near(foodConsumption(s),foodConsumption(ordinary)*.9);assert.equal(storageCapacity(s,'wheat'),Math.floor(storageCapacity(ordinary,'wheat')*1.25));near(researchDuration(s,'agriculture'),researchDuration(ordinary,'agriculture')*.85);near(wonderDuration(s,0),wonderDuration(ordinary,0)*.85);
  s.mapUnlocked=true;s.assignments.explorer=2;near(explorationRate(s),2.5);s.meta.upgrades.production=1;near(multiplier(s,{type:'farm'}),1.2*1.1*1.15);

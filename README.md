@@ -26,7 +26,8 @@ The simulated attentive first-run route takes about **7.6 hours**; optional Obse
 - Research, researchers, trade, tools and advanced housing.
 - Mapping, explorers, expanding regions, fishing and ships.
 - Settlement stages, staged Observatory construction, ten achievements and RE-Evolution.
-- Evolution Points from completion and permanent collection milestones, eight collectible mementos and twelve constellation stars.
+- Evolution Points from completion and permanent collection milestones, eight collectible mementos and 147 upgrade stars across all twelve zodiac signs.
+- A zoomable zodiac atlas, branching paths, twelve sign mastery rewards and preserved earlier star purchases.
 - A skippable point reveal, permanent bonuses, guild specializations and a playable Renaissance research branch after the first reset.
 - A phone layout with bottom navigation, expandable resources, map zoom and large touch controls.
 - An eight-hour offline cap and a return report. The Observatory animation waits for an explicit click.
@@ -50,7 +51,7 @@ npm test
 npm run pacing
 ```
 
-The release has 150 checks covering economy, saves, research, workers, food, storage, housing, exploration, shipping, wonder construction, achievements and prestige. Gameplay details and save compatibility are in [docs/GAMEPLAY.md](docs/GAMEPLAY.md).
+The release has 160 checks covering economy, saves, research, workers, food, storage, housing, exploration, shipping, wonder construction, achievements and prestige. Gameplay details and save compatibility are in [docs/GAMEPLAY.md](docs/GAMEPLAY.md).
 
 ## GitHub Pages
 

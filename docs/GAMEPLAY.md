@@ -74,16 +74,30 @@ Eight deterministic mementos each award 1 EP once: First grain (1,000 wheat), St
 
 The reset awards points atomically, then opens a skippable 3.2-second tally. Closing, replaying, reloading or skipping cannot award them twice. An unacknowledged reward receipt remains available in RE-Evolution. It never automatically opens on return from being away. Reduced motion displays the total immediately; backgrounding pauses the tally. Open constellations acknowledges the receipt and shows the permanent upgrade menu.
 
-Four constellations each contain three sequential, one-time stars costing 5, 8 and 13 EP:
+The zodiac tree contains **147 purchasable stars** across all twelve zodiac signs, using adapted astronomical line figures. All signs branch from RE-Evolution; each sign's root can be chosen independently after the first reset. Inner stars require their preceding star. Nodes follow connected line segments within each actual constellation, with close stars spaced apart for readable targets. Patterns and the BSD license are credited in the game's Constellation pattern credits page.
 
-| Constellation | First star | Second star | Third star |
-| --- | --- | --- | --- |
-| Harvester | +20% wheat/fish production | −10% resident food use | +25% all storage |
-| Artificer | +15% wood/stone | +20% bricks/tools | +10% all building/ship output |
-| Scholar | New research takes 15% less time | +25% knowledge output | New wonder stages take 15% less time |
-| Wayfarer | +25% exploration | +30% fishing ship output | +20% resident coin income |
+The full atlas shows every sign and star, with gold purchased paths, affordable stars and locked branches. Choosing a sign opens its individual tree. Zoom, scroll/swipe and desktop mouse dragging navigate the map. The numbered star picker and prerequisite links provide direct selection for dense figures. Choosing a star only previews it; a separate purchase button spends points. Desktop has sign buttons and a side preview; phones have a native sign selector and stacked preview with large controls. Existing points, stars, collections and saves are retained.
 
-Bonuses stack multiplicatively with research and earlier permanent upgrades. Existing generic production/storage/knowledge levels are retained; the constellation screen replaces their purchase menu. New duration bonuses do not rewrite already-funded projects. Selecting a star previews it before the separate purchase button spends points. Phones show constellation tabs with large controls.
+| Sign | Upgrade stars | Focus | Automatic full-sign mastery bonus |
+| --- | ---: | --- | --- |
+| Aries | 4 | Wonders & momentum | +15% wonder construction speed · +5% all building and ship production |
+| Taurus | 12 | Materials & industry | +15% wood and stone production |
+| Gemini | 12 | Research & growth | +15% research speed · +10% population growth speed |
+| Cancer | 5 | Food & reserves | +20% all resource storage · −3% resident food consumption |
+| Leo | 9 | Prosperity & production | +10% all building and ship production · +10% resident coin income |
+| Virgo | 13 | Harvests & abundance | +20% wheat and fish production |
+| Libra | 6 | Trade & balance | +20% resident coin income · +10% all resource storage |
+| Scorpio | 14 | Tools & refining | +20% brick and tool production |
+| Sagittarius | 25 | Exploration & voyages | +25% exploration speed · +15% ship construction speed |
+| Capricorn | 10 | Stone & construction | +20% stone production · +10% wonder construction speed |
+| Aquarius | 15 | Knowledge & discovery | +20% knowledge production · +10% research speed |
+| Pisces | 22 | Fishing & seafaring | +25% fishing dock production · +20% fishing ship production |
+
+New stars cost 3–9 EP according to depth, with larger endpoint bonuses. Twelve previous upgrades keep their original 5/8/13 EP prices, IDs, prerequisites and effects: Seed/Hearth/Abundance are in Virgo, Chisel/Forge/Engine in Taurus, Thought/Memory/Vision in Aquarius, and Trail/Tide/Exchange in Sagittarius. Players keep every earlier purchase without paying again or buying newly added prerequisite stars. The complete 147-star tree costs 908 EP, intended as a long-term progression sink across many civilizations.
+
+Completing a sign automatically activates its mastery in addition to individual bonuses. Masteries require no extra points and are derived from owned stars, so reloads cannot award duplicate currency. A permanent-bonus summary displays old effects and aggregate new effects. New bonuses within the same category add together, then multiply with other categories and the retained research/legacy bonuses. Food reduction has a minimum consumption factor of 40% before the older Hearth bonus, preventing zero or negative consumption. Storage includes separate knowledge-capacity effects.
+
+New research/wonder speed bonuses apply to newly funded projects, preserving active duration records. Ship construction and population-growth speed affect ongoing work; their base work progress remains saved and their displayed remaining times use actual speed. Growth still requires food and housing. Pause, offline caps, per-stage wonder funding and ship-capacity restrictions remain in effect. No star discounts building costs, preserving exact housing refunds.
 
 After the first reset, Guild charters becomes available in the Village after Mapping and Brick making. A unique guildhall enables one freely switchable specialization per civilization: Agrarian (+25% food, −10% industrial output), Artisans (+35% bricks/tools, −10% food), or Scholars (+25% research speed, −10% wood/stone). Independent has no bonus or tradeoff. Each uses the same residents and production system; no separate staffing pool is created.
 
@@ -152,7 +166,10 @@ Tests cover the wheat-only start, stronger food needs and fish consumption, stor
 - `dist/model.js`: simulation, unlock conditions, purchases, and save validation
 - `dist/app.js`: interface and interactions
 - `dist/evolution.js`: collection milestones, mementos, reward quotes and permanent stars
-- `dist/evolution-ui.js`: constellation, collection, guild and point-reveal screens
+- `dist/evolution-ui.js`: collection, guild and point-reveal screens
+- `dist/zodiac.js`: 147 upgrade definitions, prerequisite paths, mastery and bonus aggregation
+- `dist/zodiac-shapes.js`: attributed astronomical line-figure coordinates
+- `dist/zodiac-ui.js` and `dist/zodiac.css`: zodiac atlas, focused trees and responsive controls
 - `dist/map.js`: map and building illustrations, only rendered after Mapping completes
 - `dist/style.css`: interface styles
 - `dist/mobile.css`: phone and touch layouts

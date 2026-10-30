@@ -9,8 +9,8 @@ import {
   isHome, demolitionQuote, demolishHome, ACHIEVEMENTS, achievementProgress, wonderVisualStep, wonderStatus, buildingStorage, nextMilestone, advanceAway,
 } from './model.js';
 import {constellationsHTML,collectionsHTML,guildsHTML,revealEvolution} from './evolution-ui.js';
-import {evolutionQuote,CONSTELLATIONS,STARS,COLLECTIONS,hasStar,buyStar,acknowledgeEvolution,GUILDS,setGuild,wonderProjects} from './model.js';
-let selectedStar='seed';
+import {evolutionQuote,CONSTELLATIONS,STARS,COLLECTIONS,hasStar,buyStar,acknowledgeEvolution,GUILDS,setGuild,wonderProjects,starBonus} from './model.js';
+let selectedStar='seed',zodiacView='atlas',zodiacZoom=1,zodiacCenter=false;
 import { mapHTML, wonderArt } from './map.js';
 import { observatoryAnimationHTML } from './observatory.js';
 
@@ -156,7 +156,7 @@ function explorationHTML(){
 function fleetHTML(){
   const fleet=state.fleet;
   return stockpilesHTML()+'<h1 class="page-title">Fleet</h1><p class="worker-summary">'+fleet.ships+' / '+shipCapacity(state)+' ships · '+assignedWorkers(state,'sailor')+'/'+workerDemand(state,'sailor')+' sailors</p>'+
-    (!count(state,'wharf')?'<p class="worker-help">Build a wharf on explored coastline to construct ships.</p>':fleet.building?'<section class="ship-construction"><h2>Ship under construction</h2><progress data-ship-progress max="'+SHIP_DURATION+'" value="'+(SHIP_DURATION-fleet.building.remaining)+'"></progress><p data-ship-remaining></p></section>':'<section class="build-row"><div><h2>Build ship</h2><p class="worker-help">10 minutes · two sailors per active ship</p></div><div class="purchase-block">'+costHTML(SHIP_COST)+'<button id="build-ship" '+needs(SHIP_COST)+' data-locked="'+(fleet.ships>=shipCapacity(state))+'">Build ship</button>'+etaHTML(SHIP_COST)+'</div></section>')+
+    (!count(state,'wharf')?'<p class="worker-help">Build a wharf on explored coastline to construct ships.</p>':fleet.building?'<section class="ship-construction"><h2>Ship under construction</h2><progress data-ship-progress max="'+SHIP_DURATION+'" value="'+(SHIP_DURATION-fleet.building.remaining)+'"></progress><p data-ship-remaining></p></section>':'<section class="build-row"><div><h2>Build ship</h2><p class="worker-help">'+timeFmt(SHIP_DURATION/(1+starBonus(state,'shipBuild')))+' · two sailors per active ship</p></div><div class="purchase-block">'+costHTML(SHIP_COST)+'<button id="build-ship" '+needs(SHIP_COST)+' data-locked="'+(fleet.ships>=shipCapacity(state))+'">Build ship</button>'+etaHTML(SHIP_COST)+'</div></section>')+
     ['fishing','exploration'].map(mission=>'<section class="job-row"><div><h3>'+ (mission==='fishing'?'Fishing ships':'Exploration ships')+'</h3><p>'+fleet.missions[mission]+' assigned · '+(mission==='fishing'?'+'+rateFmt(.3*multiplier(state,{type:'ship'}))+' fish/s per fully crewed ship':'Adds two explorers per fully crewed ship')+'</p></div><div class="job-controls"><button data-ship-mission="'+mission+'" data-ship-delta="-1" aria-label="Remove one '+mission+' ship">−</button><strong>'+fleet.missions[mission]+'</strong><button data-ship-mission="'+mission+'" data-ship-delta="1" aria-label="Assign one '+mission+' ship">+</button></div></section>').join('')+'<p class="worker-help">'+(fleet.ships-fleet.missions.fishing-fleet.missions.exploration)+' idle ships · '+Math.round(shipCrewing(state)*100)+'% crewed. Assign sailors in Workers.</p><button data-open-workers>Assign sailors</button>';
 }
 function technologyRows() {
@@ -200,7 +200,7 @@ function workersHTML() {
         '<input type="number" inputmode="numeric" id="workers-' + type + '" data-worker-input="' + type + '" aria-label="Workers assigned to ' + jobName(type) + '" value="' + assigned + '" min="0" max="' + Math.min(demand,assigned+idleWorkers(state)) + '" step="1">' +
         '<button data-worker-type="' + type + '" data-worker-delta="1" aria-label="Assign one worker to ' + jobName(type) + '">+</button></div></section>';
     }).join('') + '</div>' : '<p class="research-empty">Build a logging camp to create jobs.</p>') +
-    (workerDemand(state,'researcher')?'<p class="worker-help">Each researcher adds 5% research speed. Research slots: Study +2, academy +4. Researchers use residents separately from knowledge-producing jobs.</p>':'') + '<p class="worker-help">New residents arrive once per minute while there is room and enough wheat. Hamlet stage lets you choose a priority job for arrivals; otherwise they stay idle. Partially staffed jobs produce proportionally less.</p>';
+    (workerDemand(state,'researcher')?'<p class="worker-help">Each researcher adds 5% research speed. Research slots: Study +2, academy +4. Researchers use residents separately from knowledge-producing jobs.</p>':'') + '<p class="worker-help">New residents arrive every '+timeFmt(60/(1+starBonus(state,'growth')))+' while there is room and enough food. Hamlet stage lets you choose a priority job for arrivals; otherwise they stay idle. Partially staffed jobs produce proportionally less.</p>';
 }
 function progressHTML() {
   const current=stageIndex(state), missing=wonderRequirements(state);
@@ -224,7 +224,7 @@ function achievementsHTML(){
     return '<section class="achievement-row '+(p.earned?'earned':'')+'"><div><h3>'+a.name+'</h3><p>'+a.description+'</p><progress aria-label="'+a.name+' progress" data-achievement-progress="'+a.id+'" max="'+p.target+'" value="'+p.current+'"></progress></div><span data-achievement-status="'+a.id+'">'+(p.earned?'Earned':fmt(p.current)+' / '+p.target)+'</span></section>';
   }).join('')+'</div>';
 }
-function legacyHTML(){return constellationsHTML(state,selectedStar);}
+function legacyHTML(){return constellationsHTML(state,selectedStar,{view:zodiacView,zoom:zodiacZoom});}
 function showEvolutionRewards(){if(state.meta.pendingEvolution)revealEvolution(state.meta.pendingEvolution,{open:dialog,finish:()=>{acknowledgeEvolution(state);page='legacy';save();$('#modal').close();render();}});}
 function reviewReevolution() {
   if(!canReevolve(state)){toast('Complete every Observatory and Atlas stage first.');return;}
@@ -239,6 +239,7 @@ function reviewReevolution() {
   };
 }
 function render() {
+  const oldZodiac=$('#zodiac-canvas'),zodiacPosition=oldZodiac?{x:oldZodiac.scrollLeft,y:oldZodiac.scrollTop}:null;
   const unlocked=ACHIEVEMENTS.filter(a=>state.meta.achievements.includes(a.id)&&!knownAchievements.has(a.id));
   knownAchievements=new Set(state.meta.achievements);
   if(unlocked.length)toast(unlocked.length===1?'Achievement earned: '+unlocked[0].name:unlocked.length+' achievements earned.');
@@ -255,6 +256,8 @@ function render() {
   $('#game').innerHTML = page === 'research' ? researchHTML() : page === 'trade' ? tradeHTML() : page === 'workers' ? workersHTML() : page==='fleet'?fleetHTML(): page==='progress'?progressHTML():page==='achievements'?achievementsHTML():page==='legacy'?legacyHTML():page==='collections'?collectionsHTML(state):page==='guilds'?guildsHTML(state):state.mapUnlocked ? settlementHTML() : earlyHTML();
   signature = uiSignature();
   bind();
+  const tree=$('#zodiac-canvas');if(tree&&zodiacPosition){tree.scrollLeft=zodiacPosition.x;tree.scrollTop=zodiacPosition.y;}
+  if(tree&&zodiacCenter){const node=tree.querySelector('[data-star="'+selectedStar+'"]');if(node){const a=node.getBoundingClientRect(),b=tree.getBoundingClientRect();tree.scrollLeft+=a.left+a.width/2-b.left-b.width/2;tree.scrollTop+=a.top+a.height/2-b.top-b.height/2;}zodiacCenter=false;}
   updateLive();
 }
 function updateLive() {
@@ -281,7 +284,7 @@ function updateLive() {
   const exploreRate=explorationRate(state);
   $$('[data-exploration-eta]').forEach(el=>el.textContent=state.exploration.tiles.length===mapTileCount(state)?'Region fully explored.':state.paused?'Exploration paused':exploreRate>0?'Next tile in '+timeFmt((EXPLORATION_WORK-state.exploration.progress)/exploreRate):'Assign explorers to discover new tiles.');
   $$('[data-exploration-progress]').forEach(el=>el.value=state.exploration.progress);
-  if(state.fleet.building){$$('[data-ship-progress]').forEach(el=>el.value=SHIP_DURATION-state.fleet.building.remaining);$$('[data-ship-remaining]').forEach(el=>el.textContent=timeFmt(state.fleet.building.remaining)+(state.paused?' · paused':' remaining'));}
+  if(state.fleet.building){$$('[data-ship-progress]').forEach(el=>el.value=SHIP_DURATION-state.fleet.building.remaining);$$('[data-ship-remaining]').forEach(el=>el.textContent=timeFmt(state.fleet.building.remaining/(1+starBonus(state,'shipBuild')))+(state.paused?' · paused':' remaining'));}
   $$('[data-ship-mission]').forEach(btn=>btn.disabled=state.paused||(Number(btn.dataset.shipDelta)<0?state.fleet.missions[btn.dataset.shipMission]===0:state.fleet.missions.fishing+state.fleet.missions.exploration>=state.fleet.ships||btn.dataset.shipMission==='exploration'&&state.exploration.tiles.length===mapTileCount(state)));
   const arrival = nextArrival(state);
   $$('[data-next-arrival]').forEach(el => el.textContent = arrival === null ? 'Housing full · build a house for population growth.' : state.paused ? 'Population growth paused · '+timeFmt(arrival) : !foodSufficient(state) ? 'Growth paused · wheat supply is too low.' : 'Next resident in '+timeFmt(arrival));
@@ -301,7 +304,6 @@ function updateLive() {
   if(state.wonder.remaining>0){$$('[data-wonder-progress]').forEach(el=>el.value=state.wonder.duration-state.wonder.remaining);$$('[data-wonder-remaining]').forEach(el=>el.textContent=timeFmt(wonderRemaining(state))+(state.paused?' · paused':' remaining'));const quote=wonderBoostQuote(state);if(quote){$$('[data-wonder-boost-preview]').forEach(el=>el.textContent=quote.saved<1?'Stage nearly complete':'Saves '+timeFmt(quote.saved)+' · '+timeFmt(quote.nextRemaining)+' remaining after boost');$$('[data-boost-wonder]').forEach(btn=>btn.disabled=state.paused||quote.saved<1||!affordable(state,quote.cost));}}
   if($('#arrival-job'))$('#arrival-job').disabled=state.paused;
   $$('[data-speed-research]').forEach(btn => btn.disabled = state.paused);
-  $$('[data-star]').forEach(btn=>btn.onclick=()=>{selectedStar=btn.dataset.star;render();$('.star-node[data-star="'+selectedStar+'"]')?.focus();});
   $$('[data-buy-star]').forEach(btn=>btn.onclick=()=>act(()=>buyStar(state,btn.dataset.buyStar),'Permanent star unlocked.'));
   $$('[data-guild]').forEach(btn=>btn.onclick=()=>act(()=>setGuild(state,btn.dataset.guild||null)));
   $$('[data-evolution-reveal]').forEach(btn=>btn.onclick=showEvolutionRewards);
@@ -362,6 +364,16 @@ function tileAction(x,y) {
   if(b)toast(BUILDINGS[b.type].name+' · '+productionText(b.type));
 }
 function bind() {
+  $$('[data-star]').forEach(btn=>{btn.onclick=()=>{const from=STARS.find(x=>x.id===selectedStar)?.sign,to=STARS.find(x=>x.id===btn.dataset.star)?.sign;selectedStar=btn.dataset.star;if(from!==to&&zodiacView==='sign')zodiacCenter=true;render();$('#zodiac-canvas .zodiac-node[data-star="'+selectedStar+'"]')?.focus({preventScroll:true});};btn.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();btn.onclick();}};});
+  const chooseSign=id=>{const sign=CONSTELLATIONS.find(c=>c.id===id);if(!sign)return;selectedStar=sign.stars[0].id;zodiacView='sign';zodiacZoom=1;zodiacCenter=true;render();};
+  $$('[data-sign]').forEach(btn=>{btn.onclick=()=>chooseSign(btn.dataset.sign);btn.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();btn.onclick();}};});
+  $$('[data-zodiac-view]').forEach(btn=>btn.onclick=()=>{zodiacView=btn.dataset.zodiacView;zodiacZoom=1;zodiacCenter=zodiacView==='sign';render();});
+  $$('[data-zodiac-zoom]').forEach(btn=>btn.onclick=()=>{zodiacZoom=Math.max(.75,Math.min(3,zodiacZoom+Number(btn.dataset.zodiacZoom)*.25));zodiacCenter=zodiacView==='sign';render();});
+  if($('#zodiac-sign'))$('#zodiac-sign').onchange=e=>{if(e.target.value==='atlas'){zodiacView='atlas';zodiacZoom=1;render();}else chooseSign(e.target.value);};
+  if($('#zodiac-star'))$('#zodiac-star').onchange=e=>{selectedStar=e.target.value;zodiacView='sign';zodiacCenter=true;render();};
+
+  const tree=$('#zodiac-canvas');if(tree){let pan=null;tree.onpointerdown=e=>{if(e.pointerType!=='mouse'||e.button!==0||e.target.closest('[data-star],[data-sign]'))return;pan={x:e.clientX,y:e.clientY,left:tree.scrollLeft,top:tree.scrollTop};tree.setPointerCapture(e.pointerId);tree.classList.add('panning');};tree.onpointermove=e=>{if(!pan)return;tree.scrollLeft=pan.left+pan.x-e.clientX;tree.scrollTop=pan.top+pan.y-e.clientY;};tree.onpointerup=tree.onpointercancel=()=>{pan=null;tree.classList.remove('panning');};}
+
   if($('#mobile-more'))$('#mobile-more').onclick=showMore;
   if($('.resource-toggle'))$('.resource-toggle').onclick=()=>{resourcesExpanded=!resourcesExpanded;$('.resource-panel').classList.toggle('expanded',resourcesExpanded);$('.resource-toggle').setAttribute('aria-expanded',String(resourcesExpanded));$('[data-resource-toggle-label]').innerHTML=(resourcesExpanded?'Show less':'Show all')+' <span aria-hidden="true">⌄</span>';};
   $$('[data-settlement-view]').forEach(btn=>btn.onclick=()=>{mobileSettlementView=btn.dataset.settlementView;$('.settlement-layout').dataset.mobileView=mobileSettlementView;$$('[data-settlement-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.settlementView===mobileSettlementView)));});

@@ -1,3 +1,5 @@
+import {CONSTELLATIONS,STARS,prerequisites} from './zodiac.js';
+export {CONSTELLATIONS,STARS,prerequisites,starBonus,constellationBonuses,BONUS_LABELS,LEGACY_STAR_IDS} from './zodiac.js';
 // Permanent collections are claimed only when completing a civilization.
 export const COLLECTIONS=[
  ['buildings','Buildings constructed',[10,25,50,100,200]],['wheat','Wheat harvested',[1000,10000,100000,1000000]],
@@ -15,25 +17,6 @@ export const MEMENTOS=[
  {id:'seal',name:'Guild seal',description:'Build a guildhall.'},
  {id:'chart',name:'Celestial chart',description:'Complete the Celestial Atlas.'},
 ];
-export const CONSTELLATIONS=[
- {id:'harvester',name:'The Harvester',subtitle:'Food & storage',stars:[
- {id:'seed',name:'Seed',cost:5,description:'+20% wheat and fish production.'},
- {id:'hearth',name:'Hearth',cost:8,description:'Residents consume 10% less food.',requires:'seed'},
- {id:'granary',name:'Abundance',cost:13,description:'+25% storage for every resource.',requires:'hearth'}]},
- {id:'artificer',name:'The Artificer',subtitle:'Materials & industry',stars:[
- {id:'chisel',name:'Chisel',cost:5,description:'+15% wood and stone production.'},
- {id:'forge',name:'Forge',cost:8,description:'+20% brick and tool production.',requires:'chisel'},
- {id:'engine',name:'Engine',cost:13,description:'+10% production from buildings and ships.',requires:'forge'}]},
- {id:'scholar',name:'The Scholar',subtitle:'Research & construction',stars:[
- {id:'thought',name:'Thought',cost:5,description:'New research takes 15% less time.'},
- {id:'archive',name:'Memory',cost:8,description:'+25% knowledge production.',requires:'thought'},
- {id:'vision',name:'Vision',cost:13,description:'New wonder stages take 15% less time.',requires:'archive'}]},
- {id:'wayfarer',name:'The Wayfarer',subtitle:'Exploration & trade',stars:[
- {id:'trail',name:'Trail',cost:5,description:'+25% exploration speed.'},
- {id:'tide',name:'Tide',cost:8,description:'+30% fish from ships.',requires:'trail'},
- {id:'exchange',name:'Exchange',cost:13,description:'+20% resident coin income.',requires:'tide'}]},
-];
-export const STARS=CONSTELLATIONS.flatMap(c=>c.stars);
 export const hasStar=(s,id)=>s.meta.stars?.includes(id)||false;
 export const blankCollections=()=>({records:Object.fromEntries(COLLECTIONS.map(c=>[c.id,0])),tiers:Object.fromEntries(COLLECTIONS.map(c=>[c.id,0])),items:[],claimedItems:[]});
 export const blankStats=()=>({constructed:0,produced:Object.fromEntries(['wheat','wood','stone','science','coin','brick','tool','fish'].map(k=>[k,0])),peakPopulation:6,peakTiles:25});
@@ -53,7 +36,7 @@ export function buyStar(s,id){
  if(s.paused)return 'Resume the game to choose a star.';
  if(!s.meta.revolutions)return 'Complete your first RE-Evolution first.';
  const star=STARS.find(x=>x.id===id);if(!star||hasStar(s,id))return 'This star is not available.';
- if(star.requires&&!hasStar(s,star.requires))return 'Unlock the preceding star first.';
+ if(prerequisites(star).some(id=>!hasStar(s,id)))return 'Unlock the preceding star first.';
  if(s.meta.insight<star.cost)return 'Not enough Evolution Points.';
  s.meta.insight-=star.cost;s.meta.stars.push(id);return null;
 }
@@ -61,7 +44,7 @@ export function acknowledgeEvolution(s){s.meta.pendingEvolution=null;}
 export function validEvolution(s){
  const c=s.meta.collections,r=s.runStats,integer=n=>Number.isSafeInteger(n)&&n>=0,positive=n=>Number.isFinite(n)&&n>=0;
  if(!r||!integer(r.constructed)||!integer(r.peakPopulation)||r.peakPopulation<6||!integer(r.peakTiles)||r.peakTiles<25||!r.produced||Object.keys(blankStats().produced).some(k=>!positive(r.produced[k])))return false;
- if(!Array.isArray(s.meta.stars)||new Set(s.meta.stars).size!==s.meta.stars.length||s.meta.stars.some(id=>!STARS.some(x=>x.id===id)||STARS.find(x=>x.id===id).requires&&!hasStar(s,STARS.find(x=>x.id===id).requires))||s.meta.stars.length&&!s.meta.revolutions)return false;
+ if(!Array.isArray(s.meta.stars)||new Set(s.meta.stars).size!==s.meta.stars.length||s.meta.stars.some(id=>!STARS.some(x=>x.id===id)||prerequisites(STARS.find(x=>x.id===id)).some(parent=>!hasStar(s,parent)))||s.meta.stars.length&&!s.meta.revolutions)return false;
  if(!c||!c.records||!c.tiers||COLLECTIONS.some(row=>!positive(c.records[row.id])||!integer(c.tiers[row.id])||c.tiers[row.id]>row.thresholds.filter(n=>c.records[row.id]>=n).length))return false;
  if(['items','claimedItems'].some(key=>!Array.isArray(c[key])||new Set(c[key]).size!==c[key].length||c[key].some(id=>!MEMENTOS.some(x=>x.id===id)))||c.claimedItems.some(id=>!c.items.includes(id)))return false;
  const p=s.meta.pendingEvolution;
