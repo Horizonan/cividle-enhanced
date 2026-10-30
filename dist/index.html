@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f5f1">
+  <meta name="description" content="An incremental civilization game. Start with wheat and unlock the rest as you build.">
+  <title>CivIdle Enhanced</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="#" aria-label="CivIdle Enhanced home"><span>CivIdle</span> <small>Enhanced</small></a><span id="stage-label" class="stage-badge" hidden></span>
+    <nav id="navigation" aria-label="Game sections"></nav>
+    <div class="header-controls">
+      <span id="save-status" role="status">Saved</span>
+      <button id="pause-button">Pause</button>
+      <button id="settings-button">Settings</button>
+    </div>
+  </header>
+  <div class="journey-controls" id="journey-controls" hidden><button id="next-milestone">Next milestone</button><button id="away-report" hidden>While you were away</button></div>
+  <main id="game"></main>
+  <nav id="mobile-navigation" aria-label="Mobile game sections"></nav>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="modal"><button id="modal-close" aria-label="Close dialog">×</button><div id="modal-content"></div></dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
